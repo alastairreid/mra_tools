@@ -1,3 +1,13 @@
+# ASL files
+regs.asl
+shared.asl
+instrs32.tag
+instrs64.tag
+
+# Vim files
+*.swp
+*.un~
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
