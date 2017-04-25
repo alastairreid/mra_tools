@@ -19,6 +19,28 @@ def emit(f, tag, content):
         print(content, file=f)
 
 '''
+Emit tagfile entry for an instruction
+'''
+def emitInstruction(outf, name, encs, post, exec):
+    index = [] # index of sections of this instruction
+    exec_tag = name+':execute'
+    post_tag = name+':postdecode'
+    idx_tag  = name+':index'
+    emit(outf, exec_tag, exec)
+    index.append('Execute: '+exec_tag)
+    if post:
+        emit(outf, post_tag, post)
+        index.append('Postdecode: '+post_tag)
+    for (inm,enc,dec) in encs:
+        inm = name+"_"+inm
+        dec_tag  = inm + ':decode'
+        enc_tag  = inm + ':diagram'
+        emit(outf, enc_tag, enc)
+        emit(outf, dec_tag, dec)
+        index.append('Decode: '+dec_tag+'@'+enc_tag)
+    emit(outf, idx_tag, "\n".join(index))
+
+'''
 Read shared pseudocode files to extract ASL.
 Result is sorted so that uses come before definitions.
 '''
@@ -80,39 +102,25 @@ def readNotice(xml):
     notice.append('/'*72)
     return '\n'.join(notice)
 
-def readInstruction(inf, outf, name):
-    exec_tag = name+':execute'
-    post_tag = name+':postdecode'
-    idx_tag  = name+':index'
-    xml = ET.parse(inf)
+def readInstruction(xml):
     execs = xml.findall(".//pstext[@section='Execute']")
     posts = xml.findall(".//pstext[@section='Postdecode']")
     assert(len(posts) <= 1)
     assert(len(execs) <= 1)
-    if not execs: return
+    if not execs: return ([], None, None)
 
-    index = [] # index of sections of this instruction
+    exec = ET.tostring(execs[0], method="text").decode().rstrip()
+    post = ET.tostring(posts[0], method="text").decode().rstrip() if posts else None
 
-    # emit ASL for execute and (optional) postdecode sections
-    emit(outf, exec_tag, ET.tostring(execs[0], method="text").decode().rstrip())
-    index.append('Execute: '+exec_tag)
-    if posts:
-        emit(outf, post_tag, ET.tostring(posts[0], method="text").decode().rstrip())
-        index.append('Postdecode: '+post_tag)
-
-    # for each encoding, emit instructions encoding, matching decode ASL and index
+    # for each encoding, read instructions encoding, matching decode ASL and index
+    encs = []
     for iclass in xml.findall('.//classes/iclass'):
-        inm = name+"_"+iclass.attrib['name']
-        # emit decode ASL
-        dec_tag  = inm + ':decode'
+        inm = iclass.attrib['name']
         dec_asl = ET.tostring(iclass.find('ps_section/ps/pstext'), method="text").decode().rstrip()
         # Normalise SEE statements (AArch32 version omits quotes)
         dec_asl = re.sub(r'SEE\s+([^"][^;]*);', r'SEE "\1";', dec_asl)
-        emit(outf, dec_tag, dec_asl)
 
-        # emit instructions encoding
         encoding = iclass.find('regdiagram')
-        enc_tag  = inm + ':diagram'
         isT16 = encoding.attrib['form'] == "16"
         fs = []
         for b in encoding.findall('box'):
@@ -150,14 +158,9 @@ def readInstruction(inf, outf, name):
         enc = ["T16" if isT16 else iclass.attrib['isa']]
         enc.extend([str(hi)+":"+str(lo)+" "+nm+" "+consts
                     for (hi,lo,nm,_,consts) in fs ])
-        emit(outf, enc_tag, "\n".join(enc))
+        encs.append((inm, "\n".join(enc), dec_asl))
 
-        index.append('Decode: '+dec_tag+'@'+enc_tag)
-
-    # emit index for this encoding
-    emit(outf, idx_tag, "\n".join(index))
-
-    return
+    return (encs, post, exec)
 
 
 def main():
@@ -170,8 +173,6 @@ def main():
                         metavar='FILE', default='arch.asl')
     parser.add_argument('dir', metavar='<dir>',  nargs='+',
                         help='input directories')
-    parser.add_argument('--slice',  help='Optional input json file to filter definitions',
-                        metavar='FILE', default='isa.json')
     args = parser.parse_args()
 
     notice = readNotice(ET.parse(os.path.join(args.dir[0], 'notice.xml')))
@@ -183,7 +184,10 @@ def main():
             for inf in glob.glob(os.path.join(d, '*.xml')):
                 name = re.search('.*/(\S+).xml',inf).group(1)
                 if name == "onebigfile": continue
-                readInstruction(inf, outf, name)
+                xml = ET.parse(inf)
+                (encs, post, exec) = readInstruction(xml)
+                if not exec: continue
+                emitInstruction(outf, name, encs, post, exec)
 
     with open(args.asl, "w") as outf:
         print(notice, file=outf)
