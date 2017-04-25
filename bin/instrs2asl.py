@@ -41,7 +41,6 @@ def readShared(files):
     asl['aarch32/functions/ras/AArch32.PhysicalSErrorSyndrome'][1].append('AArch32.SErrorSyndrome')
 
     # perform topological sort on definitions
-    # producing list in reverse order
     sorted = []
     seen = set()
 
@@ -60,6 +59,11 @@ def readShared(files):
     # print("\n".join(sorted))
     return [ asl[x][0] for x in sorted ]
 
+'''
+Read ARM's license notice from an XML file.
+Convert unicode characters to ASCII equivalents (e.g,, (C)).
+Return a giant comment block containing the notice.
+'''
 def readNotice(xml):
     # Read proprietary notice
     notice = ['/'*72, "// Proprietary Notice"]
@@ -166,6 +170,8 @@ def main():
                         metavar='FILE', default='arch.asl')
     parser.add_argument('dir', metavar='<dir>',  nargs='+',
                         help='input directories')
+    parser.add_argument('--slice',  help='Optional input json file to filter definitions',
+                        metavar='FILE', default='isa.json')
     args = parser.parse_args()
 
     notice = readNotice(ET.parse(os.path.join(args.dir[0], 'notice.xml')))
