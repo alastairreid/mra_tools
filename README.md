@@ -10,6 +10,10 @@ Currently implemented:
 
 All generated files include ARM's license notice.
 
+Usage:
+
+    bin/instrs2asl.py v8.2/isa32/ISA_v82A_AArch32_xml_00bet3.1 v8.2/isa64/ISA_v82A_A64_xml_00bet3.1
+
 
 ## Shared pseudocode
 
