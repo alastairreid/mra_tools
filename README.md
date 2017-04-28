@@ -2,17 +2,65 @@
 
 Tools to process ARM's Machine Readable Architecture Specification.
 
-Currently implemented:
+These tools unpack the ASL spec from inside the XML.
+
+## Usage
+
+The following commands will download ARM's specification and unpack it.
+
+    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/ARMv82A-SysReg-00bet3.1.tar.gz
+    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/A64_v82A_ISA_xml_00bet3.1.tar.gz
+    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/AArch32_v82A_ISA_xml_00bet3.1.tar.gz
+
+    tar zxf ARMv82A-SysReg-00bet3.1.tar.gz SysReg_v82A_xml-00bet3.1.tar.gz
+    tar zxf SysReg_v82A_xml-00bet3.1.tar.gz SysReg_v82A_xml-00bet3.1
+    tar zxf A64_v82A_ISA_xml_00bet3.1.tar.gz ISA_v82A_A64_xml_00bet3.1
+    tar zxf AArch32_v82A_ISA_xml_00bet3.1.tar.gz ISA_v82A_AArch32_xml_00bet3.1
+
+    python3 bin/reg2asl.py SysReg_v82A_xml-00bet3.1 -o regs.asl
+    python3 bin/instrs2asl.py ISA_v82A_AArch32_xml_00bet3.1 ISA_v82A_A64_xml_00bet3.1
+
+Generates:
+
+- arch.asl: all the ASL support code
+- arch.tag: all the instruction encodings and decode/execute ASL
+- regs.asl: type of each system register
+
+Various subsets of the architecture can be generated using these additional flags
+
+    --arch=AArch32
+    --arch=AArch64
+    --arch=AArch32 --arch=AArch64
+
+## Help
+
+    $ bin/instrs2asl.py  -h
+    usage: instrs2asl.py [-h] [--verbose] [--tag FILE] [--asl FILE]
+			 [--arch {AArch32,AArch64}]
+			 <dir> [<dir> ...]
+
+    Unpack ARM instruction XML files extracting the encoding information and ASL
+    code within it.
+
+    positional arguments:
+      <dir>                 input directories
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      --verbose, -v         Use verbose output
+      --tag FILE            Output tag file for instructions
+      --asl FILE            Output asl file for support code
+      --arch {AArch32,AArch64}
+			    Optional list of architecture states to extract
+
+
+## Currently implemented
 
 - Unpack all the ASL code in the 'shared_pseudocode' file to giant ASL file
 - Unpack instructions to 'tagfile' format
 - Quick and dirty unpack of system register spec to ASL file
 
 All generated files include ARM's license notice.
-
-Usage:
-
-    bin/instrs2asl.py v8.2/isa32/ISA_v82A_AArch32_xml_00bet3.1 v8.2/isa64/ISA_v82A_A64_xml_00bet3.1
 
 
 ## Shared pseudocode

@@ -1,8 +1,11 @@
+# tarballs
+
+*.tar.gz
+
 # ASL files
 regs.asl
-shared.asl
-instrs32.tag
-instrs64.tag
+arch.asl
+arch.tag
 
 # Vim files
 *.swp
