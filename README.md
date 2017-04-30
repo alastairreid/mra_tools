@@ -1,8 +1,13 @@
-# mra_tools
+# Tools to extract ARM's Machine Readable Architecture Specification.
 
-Tools to process ARM's Machine Readable Architecture Specification.
+These tools unpack the ASL spec from inside the XML so that the spec is
+easy to process.
 
-These tools unpack the ASL spec from inside the XML.
+See [blog post](https://alastairreid.github.io/dissecting-ARM-MRA/) for an
+explanation of the structure of ARM's releases and a description of the
+innards of these tools and see [blog
+post](https://alastairreid.github.io/ARM-v8a-xml-release/) for some ideas
+on what can be done with the specification once it has been unpacked.
 
 ## Usage
 
