@@ -13,17 +13,20 @@ on what can be done with the specification once it has been unpacked.
 
 The following commands will download ARM's specification and unpack it.
 
-    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/ARMv82A-SysReg-00bet3.1.tar.gz
-    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/A64_v82A_ISA_xml_00bet3.1.tar.gz
-    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/AArch32_v82A_ISA_xml_00bet3.1.tar.gz
+    mkdir -p v8.2
+    cd v8.2
+    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/ARMv82A-SysReg-00bet3.2.tar.gz
+    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/A64_v82A_ISA_xml_00bet3.2.tar.gz
+    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/AArch32_v82A_ISA_xml_00bet3.2.tar.gz
+    tar zxf A64_v82A_ISA_xml_00bet3.2.tar.gz
+    tar zxf SysReg_v82A_xml-00bet3.2.tar.gz SysReg_v82A_xml-00bet3.2
+    tar zxf AArch32_v82A_ISA_xml_00bet3.2.tar.gz
+    tar zxf ARMv82A-SysReg-00bet3.2.tar.gz
+    cd ..
 
-    tar zxf ARMv82A-SysReg-00bet3.1.tar.gz SysReg_v82A_xml-00bet3.1.tar.gz
-    tar zxf SysReg_v82A_xml-00bet3.1.tar.gz SysReg_v82A_xml-00bet3.1
-    tar zxf A64_v82A_ISA_xml_00bet3.1.tar.gz ISA_v82A_A64_xml_00bet3.1
-    tar zxf AArch32_v82A_ISA_xml_00bet3.1.tar.gz ISA_v82A_AArch32_xml_00bet3.1
-
-    python3 bin/reg2asl.py SysReg_v82A_xml-00bet3.1 -o regs.asl
-    python3 bin/instrs2asl.py ISA_v82A_AArch32_xml_00bet3.1 ISA_v82A_A64_xml_00bet3.1
+    make all
+    # python3 bin/reg2asl.py v8.2/SysReg_v82A_xml-00bet3.2 -o regs.asl
+    # python3 bin/instrs2asl.py v8.2/ISA_v82A_AArch32_xml_00bet3.2 v8.2/ISA_v82A_A64_xml_00bet3.2
 
 Generates:
 

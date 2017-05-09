@@ -1,12 +1,17 @@
-.default: all
+.PHONY: default
+default: all
 
-regs.asl: SysReg_v82A_xml-00bet3.1
+VERSION = 00bet3.2
+XMLDIR = v8.2
+
+regs.asl: ${XMLDIR}/SysReg_v82A_xml-${VERSION}
 	bin/reg2asl.py $< -o $@
 
-arch.asl arch.tag: ISA_v82A_AArch32_xml_00bet3.1 ISA_v82A_A64_xml_00bet3.1
+arch.asl arch.tag: ${XMLDIR}/ISA_v82A_AArch32_xml_${VERSION} ${XMLDIR}/ISA_v82A_A64_xml_${VERSION}
 	bin/instrs2asl.py $^
 
-all :: regs.asl arch.asl arch.tag
+all :: regs.asl
+all :: arch.asl
 
 clean ::
 	$(RM) regs.asl arch.asl arch.tag
