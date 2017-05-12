@@ -15,3 +15,10 @@ all :: arch.asl
 
 clean ::
 	$(RM) regs.asl arch.asl arch.tag
+
+
+clean ::
+	$(MAKE) -C src clean
+
+
+# End

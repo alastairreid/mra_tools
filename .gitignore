@@ -10,6 +10,12 @@ arch.tag
 # Vim files
 *.swp
 *.un~
+*.swo
+
+# OCaml files
+src/_build
+src/*.byte
+src/*.native
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
