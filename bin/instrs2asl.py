@@ -230,8 +230,8 @@ def readInstruction(xml,names):
                 nm = '_'
 
             # if adjacent entries are two parts of same field, join them
-            # e.g., imm8<7:1> and imm8<0>
-            m = re.match('^(\w+)<', nm)
+            # e.g., imm8<7:1> and imm8<0> or opcode[5:2] and opcode[1:0]
+            m = re.match('^(\w+)[<[]', nm)
             if m:
                 nm = m.group(1)
                 split = True
