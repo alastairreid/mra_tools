@@ -219,15 +219,7 @@ def readInstruction(xml,names):
             if isT16: hi = hi-16
             lo = hi - wd + 1
             nm  = b.attrib.get('name', '_')
-            consts = ''.join([ c.text for c in b.findall('c') if c.text is not None ])
-
-            # normalise constants: note that it discards != information
-            # because it is better obtained elsewhere in spec
-            if consts == "" or consts.startswith('!='):
-                consts = 'x'*wd
-            elif nm in ["SP", "mask"]:
-                # workaround: avoid use of overloaded field name
-                nm = '_'
+            consts = ''.join([ 'x'*int(c.attrib.get('colspan','1')) if c.text is None else c.text for c in b.findall('c') ])
 
             # if adjacent entries are two parts of same field, join them
             # e.g., imm8<7:1> and imm8<0> or opcode[5:2] and opcode[1:0]
@@ -243,7 +235,20 @@ def readInstruction(xml,names):
             else:
                 split = False
 
+            # discard != information because it is better obtained elsewhere in spec
+            if consts.startswith('!='): consts = 'x'*wd
+
             fields.append((hi,lo,nm,split,consts))
+
+        # workaround: avoid use of overloaded field names
+        fields2 = []
+        for (hi, lo, nm, split, consts) in fields:
+            if (nm in ["SP", "mask", "opcode"]
+               and 'x' not in consts
+               and exec.name not in ["aarch64/float/convert/fix", "aarch64/float/convert/int"]):
+                # workaround: avoid use of overloaded field name
+                nm = '_'
+            fields2.append((hi,lo,nm,split,consts))
 
         dec_asl = readASL(iclass.find('ps_section/ps'))
         dec_asl.patchDependencies(names)
@@ -252,7 +257,7 @@ def readInstruction(xml,names):
         dec_asl.code = re.sub(r'SEE\s+([^"][^;]*);', r'SEE "\1";', dec_asl.code)
 
         name = dec_asl.name if insn_set in ["T16","T32","A32"] else encoding.attrib['psname']
-        encs.append((name, insn_set, fields, dec_asl))
+        encs.append((name, insn_set, fields2, dec_asl))
 
     return Instruction(exec.name, encs, post, exec)
 
