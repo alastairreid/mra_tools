@@ -1,7 +1,6 @@
 open Core.Std
 open Lexer
 open Lexing
-
 open Parser
 
 let string_of_token (t: Parser.token): string =
@@ -14,6 +13,7 @@ let string_of_token (t: Parser.token): string =
     | BANG      -> "bang"
     | BARBAR    -> "barbar"
     | BIN(x)    -> "bin:"^x
+    | BUILTIN   -> "builtin"
     | CARET     -> "caret"
     | CASE      -> "case"
     | COLON     -> "colon"
@@ -57,7 +57,6 @@ let string_of_token (t: Parser.token): string =
     | MINUS     -> "minus"
     | MOD       -> "mod"
     | NEQ       -> "neq"
-    | NEWLINE   -> "newline"
     | NOT       -> "not"
     | OF        -> "of"
     | OR        -> "or"
@@ -80,7 +79,7 @@ let string_of_token (t: Parser.token): string =
     | STAR      -> "star"
     | STRING(x) -> "\"" ^ x
     | THEN      -> "then"
-    | TIDENT(x) -> x
+    | TIDENT(x) -> "tident:"^x
     | TO        -> "to"
     | TYPE      -> "type"
     | TYPEOF    -> "typeof"
@@ -180,30 +179,3 @@ let offside_token (read: Lexing.lexbuf -> Parser.token): (Lexing.lexbuf -> Parse
     in
     getToken
 
-let _ =
-    let lexbuf = Lexing.from_channel stdin in
-    try
-        let lexer = offside_token Lexer.token in
-        (* let lexer = Lexer.token in *)
-        if true then begin
-            while true do
-                let t = lexer lexbuf in
-                let curr = lexbuf.Lexing.lex_curr_p in
-                let line = curr.Lexing.pos_lnum in
-                let cnum = curr.Lexing.pos_cnum - curr.Lexing.pos_bol in
-                let tok = Lexing.lexeme lexbuf in
-                printf "Token %d.%d %s\n" line cnum (string_of_token t);
-                if t = EOF then exit 0
-            done
-        end else begin
-            while true do
-                Parser.main lexer lexbuf
-            done
-        end
-    with Parser.Error -> begin
-        let curr = lexbuf.Lexing.lex_curr_p in
-        let line = curr.Lexing.pos_lnum in
-        let cnum = curr.Lexing.pos_cnum - curr.Lexing.pos_bol in
-        let tok = Lexing.lexeme lexbuf in
-        printf "Parser error at %d.%d '%s'\n" line cnum tok
-    end

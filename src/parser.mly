@@ -1,3 +1,7 @@
+%{
+open Parsersupport
+%}
+
 %token <int> INT
 %token <string> HEX
 %token <string> FLOAT
@@ -9,13 +13,14 @@
 
 %token INDENT
 %token DEDENT
-%token NEWLINE
+%token EOL
 %token EOF
 
 /* reserved words */
 %token AND
 %token ARRAY
 %token ASSERT
+%token BUILTIN
 %token CASE
 %token CONSTANT
 %token DIV
@@ -63,7 +68,6 @@
 %token COMMA
 %token DOT
 %token DOTDOT
-%token EOL
 %token EQ
 %token EQEQ
 %token GT
@@ -88,34 +92,56 @@
 %start <unit> main
 %%
 main:
-    | definition EOL                { }
+    | list(def) EOF {}
 ;
 
+def:
+    | definition {}
+    | EOL        {}
+    ;
+
 definition:
-    | ENUM IDENT EQ LBRACE separated_list(COMMA,IDENT) RBRACE {}
+    | BUILTIN TYPE tidentdecl SEMI {}
+    | ENUM tidentdecl LBRACE separated_list(COMMA,IDENT) RBRACE SEMI {}
+    | TYPE tidentdecl IS LPAREN separated_list(COMMA,field) RPAREN option(SEMI) {}
+    | TYPE tidentdecl EQ type1 SEMI {}
     | CONSTANT type1 IDENT EQ expr SEMI {}
-    | TYPE IDENT IS LPAREN separated_list(COMMA,field) SEMI {}
     | ARRAY type1 IDENT LBRACK ixtype RBRACK SEMI {}
-    | REGISTER INT LBRACE regfields RBRACE SEMI {}
-    | type1 IDENT SEMI {}
-    | type1 IDENT formals SEMI {}
-    | type1 IDENT formals NEWLINE block {}
-    | IDENT formals SEMI {}
-    | IDENT formals NEWLINE block {}
+    | REGISTER INT LBRACE regfields RBRACE IDENT SEMI {}
+    | type1 qualident SEMI {}
+    | returntype qualident formals SEMI {}
+    | returntype qualident formals block {}
+    | qualident formals SEMI {}
+    | qualident formals block {}
+    ;
+
+// match an identifier in a context where the identifier will be
+// declared as a type identifier
+tidentdecl:
+    | IDENT { addTypeIdent($1) }
+    ;
+
+qualident:
+    | IDENT {}
+    | IDENT DOT IDENT {}
     ;
 
 field:
-    | type1 IDENT {}
+    | type1 ident {}
+    ;
+
+// workaround: allow "type" as an identifier in some contexts
+ident:
+    | IDENT {}
+    | TYPE {}
     ;
 
 regfields:
-    | regfield                 {}
-    | regfield regfields       {}
-    | NEWLINE regfields        {}
+    | separated_list(COMMA, regfield) {}
     ;
 
 regfield:
-    | separated_list(COMMA, slice) IDENT {}
+    | separated_nonempty_list(COMMA, slice) IDENT {}
     ;
 
 formals:
@@ -130,7 +156,7 @@ arguments:
     ;
 
 argdecl:
-    | type1 option(AMP) IDENT {}
+    | type1 option(AMP) ident {}
     ;
 
 type1:
@@ -145,6 +171,11 @@ ixtype:
     | expr DOTDOT expr                {}
 ;
 
+%inline returntype:
+    | type1                                      {}
+    | LPAREN separated_list(COMMA, type1) RPAREN {}
+    ;
+
 stmt:
     | option(CONSTANT) type1 IDENT option(preceded(EQ, expr)) SEMI {}
     | lexpr EQ expr SEMI                     {}
@@ -155,21 +186,26 @@ stmt:
     | RETURN expr SEMI                       {}
     | FAIL                                   {}
     | SKIP                                   {}
-    | IF expr THEN block list(elsif_s)               {}
-    | IF expr THEN block list(elsif_s) ELSE block    {}
-    | FOR IDENT EQ expr direction expr NEWLINE block {}
-    | CASE expr OF INDENT separated_list(NEWLINE, alt) DEDENT {}
+    | IF expr THEN block1 list(elsif_s)               {}
+    | IF expr THEN block1 list(elsif_s) ELSE block1    {}
+    | FOR IDENT EQ expr direction expr block {}
+    | CASE expr OF INDENT separated_list(EOL, alt) DEDENT {}
     | WHILE expr DO INDENT list(stmt) DEDENT          {}
     | REPEAT INDENT list(stmt) DEDENT UNTIL expr SEMI {}
 ;
 
+block1:
+    | INDENT separated_list(EOL,stmt) DEDENT {}
+    | nonempty_list(stmt) {}
+    ;
+
 block:
-    | NEWLINE INDENT separated_list(NEWLINE,stmt) DEDENT {}
-    | list(stmt) NEWLINE {}
+    | INDENT separated_list(EOL,stmt) DEDENT {}
+    | list(stmt) EOL {}
     // | list(stmt) {}
     ;
 
-elsif_s: ELSIF expr THEN block {}
+elsif_s: ELSIF expr THEN block1 {}
 
 direction:
     | TO      {}
@@ -200,7 +236,7 @@ lexpr:
     | MINUS                           {}
     | IDENT                           {}
     | lexpr LBRACK expr RBRACK        {}
-    | lexpr DOT IDENT                 {}
+    | lexpr DOT ident                 {}
     | lexpr DOT LT separated_nonempty_list(COMMA, IDENT) GT     {}
     | LPAREN separated_nonempty_list(COMMA, lexpr) RPAREN   { }
 ;
@@ -212,8 +248,8 @@ aexpr:
     | BIN                             { }
     | MASK                            { }
     | STRING                          { }
-    | IDENT                           { }
-    | IDENT LPAREN separated_list(COMMA, expr) RPAREN {}
+    | ident                           { }
+    | ident LPAREN separated_list(COMMA, expr) RPAREN {}
     | LPAREN separated_nonempty_list(COMMA, expr) RPAREN   { }
     | LBRACE separated_list(COMMA, element) RBRACE  {}
     | unop aexpr                      { }
@@ -223,7 +259,7 @@ aexpr:
 bexpr:
     | aexpr {}
     | aexpr LBRACK expr RBRACK     { }
-    | aexpr DOT IDENT                  {}
+    | aexpr DOT ident                  {}
     | aexpr DOT LT separated_nonempty_list(COMMA, IDENT) GT     {}
     // note that the following creates an ambiguity:
     // x < y  vs.  x < y >
@@ -255,8 +291,8 @@ element:
 ;
 
 unop:
-    | MINUS                  { }
-    | BANG                   { }
+    | MINUS                  {}
+    | BANG                   {}
     | NOT                    {}
 ;
 

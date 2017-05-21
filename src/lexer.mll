@@ -1,5 +1,6 @@
 {
 open Parser        (* The type token is defined in parser.mli *)
+open Parsersupport
 open Core.Std
 exception Eof
 
@@ -19,6 +20,7 @@ let keywords : (string, Parser.token) List.Assoc.t = [
     ("UNDEFINED",     UNDEFINED);
     ("UNKNOWN",       UNKNOWN);
     ("UNPREDICTABLE", UNPREDICTABLE);
+    ("__builtin",     BUILTIN);
     ("__register",    REGISTER);
     ("array",         ARRAY);
     ("assert",        ASSERT);
@@ -39,6 +41,7 @@ let keywords : (string, Parser.token) List.Assoc.t = [
     ("return",        RETURN);
     ("then",          THEN);
     ("to",            TO);
+    ("type",          TYPE);
     ("until",         UNTIL);
     ("when",          WHEN);
     ("while",         WHILE);
@@ -63,7 +66,7 @@ rule token = parse
     | ['a'-'z' 'A'-'Z' '_'] ['a'-'z' 'A'-'Z' '0'-'9' '_']* as lxm {
            ( match List.Assoc.find keywords lxm with
            | Some x -> x
-           | None   -> IDENT(lxm)
+           | None   -> if isTypeIdent(lxm) then TIDENT(lxm) else IDENT(lxm)
            )
     }
     | '`' [^'`']+ '`'                        as lxm { IDENT(lxm) }
@@ -107,4 +110,3 @@ and comment depth = parse
       '/' '*' { comment (depth+1) lexbuf }
     | '*' '/' { if depth = 1 then token lexbuf else comment (depth-1) lexbuf }
     | _       { comment depth lexbuf }
-
