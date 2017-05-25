@@ -45,8 +45,8 @@ class ASL:
     # workaround: patch all ASL code with extra dependencies
     def patchDependencies(self, names):
         for m in re.finditer('''([a-zA-Z_]\w+(\.\w+)?\[?)''', self.code):
-            if m[1] in names:
-                self.deps |= {m[1]}
+            if m.group(1) in names:
+                self.deps |= {m.group(1)}
         self.deps -= self.defs
 
 
@@ -128,29 +128,29 @@ def readShared(files):
             r = readASL(ps)
             # workaround: collect type definitions
             for m in re.finditer('''(?m)^(enumeration|type)\s+(\S+)''',r.code):
-                r.defs.add(m[2])
-                names |= {m[2]}
+                r.defs.add(m.group(2))
+                names |= {m.group(2)}
             # workaround: collect variable definitions
             for m in re.finditer('''(?m)^(\S+)\s+([a-zA-Z_]\w+);''',r.code):
-                if m[1] != "type":
+                if m.group(1) != "type":
                     # print("variable declaration", m[1], m[2])
-                    r.defs.add(m[2])
-                    names |= {m[2]}
+                    r.defs.add(m.group(2))
+                    names |= {m.group(2)}
             # workaround: collect array definitions
             for m in re.finditer('''(?m)^array\s+(\S+)\s+([a-zA-Z_]\w+)''',r.code):
                 # print("array declaration", m[1], m[2])
-                v = m[2]+"["
+                v = m.group(2)+"["
                 r.defs.add(v)
                 names |= {v}
             # workaround: collect variable accessors
             for m in re.finditer('''(?m)^(\w\S+)\s+([a-zA-Z_]\w+)\s*$''',r.code):
                 # print("variable accessor", m[1], m[2])
-                r.defs.add(m[2])
-                names |= {m[2]}
+                r.defs.add(m.group(2))
+                names |= {m.group(2)}
             # workaround: collect array accessors
             for m in re.finditer('''(?m)^(\w\S+)\s+([a-zA-Z_]\w+)\[''',r.code):
                 # print("array accessor", m[1], m[2])
-                v = m[2]+"["
+                v = m.group(2)+"["
                 r.defs.add(v)
                 names |= {v}
             # workaround: add PSTATE definition/dependency
