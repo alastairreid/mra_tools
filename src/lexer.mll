@@ -58,8 +58,8 @@ rule token = parse
 
     (* numbers, strings and identifiers *)
     | '"' [^'"']* '"'                        as lxm { STRING(lxm) }
-    | '\'' ['0' '1' 'x' ' ']* '\''           as lxm { MASK(lxm) }
     | '\'' ['0' '1' ' ']* '\''               as lxm { BIN(lxm) }
+    | '\'' ['0' '1' 'x' ' ']* '\''           as lxm { MASK(lxm) }
     | '0''x'['0'-'9' 'A' - 'F' 'a'-'f' '_']+ as lxm { HEX(lxm) }
     | ['0'-'9']+ '.' ['0'-'9']+              as lxm { FLOAT(lxm) }
     | ['0'-'9']+                             as lxm { INT(int_of_string lxm) }
