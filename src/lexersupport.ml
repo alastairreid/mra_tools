@@ -33,8 +33,7 @@ let string_of_token (t: Parser.token): string =
     | EOR       -> "eor"
     | EQ        -> "eq"
     | EQEQ      -> "eqeq"
-    | FAIL      -> "fail"
-    | FLOAT(x)  -> "float:"^x
+    | REAL(x)   -> "real:"^x
     | FOR       -> "for"
     | GT        -> "gt"
     | GTEQ      -> "gteq"
@@ -64,6 +63,7 @@ let string_of_token (t: Parser.token): string =
     | PLUS      -> "plus"
     | PLUSCOLON -> "pluscolon"
     | PLUSPLUS  -> "plusplus"
+    | QUALIFIER(x) -> "qualifier:"^x
     | QUOT      -> "quot"
     | RBRACE    -> "rbrace"
     | RBRACK    -> "rbrack"
@@ -77,7 +77,7 @@ let string_of_token (t: Parser.token): string =
     | SKIP      -> "skip"
     | SLASH     -> "slash"
     | STAR      -> "star"
-    | STRING(x) -> "\"" ^ x
+    | STRING(x) -> "string:" ^ x
     | THEN      -> "then"
     | TIDENT(x) -> "tident:"^x
     | TO        -> "to"
@@ -160,15 +160,20 @@ let offside_token (read: Lexing.lexbuf -> Parser.token): (Lexing.lexbuf -> Parse
                     pushStack new_column
                 end else if new_column = prev_col then begin
                     state.newline <- false;
-                    EOL
+                    useToken()
                 end else begin
                     state.stack <- List.tl_exn state.stack;
                     let target_column = List.hd_exn state.stack in
                     state.newline <- new_column <> target_column;
-                    if new_column < target_column then begin
-                        printf "Warning: incorrect indentation %d %d\n"
-                           new_column target_column
-                    end;
+                    (* This gives spurious warnings when indentation is
+                     * decremented in two steps.
+                     *
+                     * if new_column < target_column then begin
+                     *     printf "Warning: incorrect indentation %d: %d %d\n"
+                     *         buf.lex_curr_p.pos_lnum
+                     *         new_column target_column
+                     * end;
+                     *)
                     DEDENT
                 end
             end else begin

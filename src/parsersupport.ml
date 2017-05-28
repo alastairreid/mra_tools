@@ -5,7 +5,7 @@ module IdentSet = Set.Make(String)
 let typeIdents = ref IdentSet.empty
 
 let addTypeIdent (x: string): unit = begin
-    ignore (printf "New type identifier %s\n" x);
+    (* ignore (printf "New type identifier %s\n" x); *)
     typeIdents := IdentSet.add !typeIdents x
 end
 

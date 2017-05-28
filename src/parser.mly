@@ -4,12 +4,13 @@ open Parsersupport
 
 %token <int> INT
 %token <string> HEX
-%token <string> FLOAT
+%token <string> REAL
 %token <string> BIN
 %token <string> MASK
 %token <string> STRING
 %token <string> IDENT
 %token <string> TIDENT
+%token <string> QUALIFIER
 
 %token INDENT
 %token DEDENT
@@ -30,7 +31,6 @@ open Parsersupport
 %token ELSIF
 %token ENUM
 %token EOR
-%token FAIL
 %token FOR
 %token IF
 %token IMPDEF
@@ -97,33 +97,40 @@ main:
 
 def:
     | definition {}
-    | EOL        {}
     ;
 
 definition:
-    | BUILTIN TYPE tidentdecl SEMI {}
-    | ENUM tidentdecl LBRACE separated_list(COMMA,IDENT) RBRACE SEMI {}
+    | BUILTIN TYPE tidentdecl SEMI                                              {}
+    | TYPE tidentdecl SEMI                                                      {}
     | TYPE tidentdecl IS LPAREN separated_list(COMMA,field) RPAREN option(SEMI) {}
-    | TYPE tidentdecl EQ type1 SEMI {}
-    | CONSTANT type1 IDENT EQ expr SEMI {}
-    | ARRAY type1 IDENT LBRACK ixtype RBRACK SEMI {}
-    | REGISTER INT LBRACE regfields RBRACE IDENT SEMI {}
-    | type1 qualident SEMI {}
-    | returntype qualident formals SEMI {}
-    | returntype qualident formals block {}
-    | qualident formals SEMI {}
-    | qualident formals block {}
+    | TYPE tidentdecl EQ type1 SEMI                                             {}
+    | ENUM tidentdecl LBRACE separated_list(COMMA,IDENT) RBRACE SEMI            {}
+    | CONSTANT type1 IDENT EQ expr SEMI                                         {}
+    | ARRAY type1 IDENT LBRACK ixtype RBRACK SEMI                               {}
+    | REGISTER INT LBRACE regfields RBRACE IDENT SEMI                           {}
+    | type1 qualident SEMI                                                      {}
+    | returntype qualident formals SEMI                                         {}
+    | returntype qualident formals block                                        {}
+    | qualident formals SEMI                                                    {}
+    | qualident formals block                                                   {}
     ;
 
 // match an identifier in a context where the identifier will be
 // declared as a type identifier
 tidentdecl:
-    | IDENT { addTypeIdent($1) }
+    | IDENT                { addTypeIdent($1) }
+    | QUALIFIER DOT IDENT  { addTypeIdent($3) } (* todo: should really add $1.$3 *)
+    | tident               {}
     ;
 
 qualident:
-    | IDENT {}
-    | IDENT DOT IDENT {}
+    | ident               {}
+    | QUALIFIER DOT ident {}
+    ;
+
+tident:
+    | TIDENT               {}
+    | QUALIFIER DOT TIDENT {}
     ;
 
 field:
@@ -133,7 +140,7 @@ field:
 // workaround: allow "type" as an identifier in some contexts
 ident:
     | IDENT {}
-    | TYPE {}
+    | TYPE  {}
     ;
 
 regfields:
@@ -148,6 +155,7 @@ formals:
     | arguments EQ type1 IDENT {}
     | arguments                {}
     | EQ type1 IDENT           {}
+    |                          {}
     ;
 
 arguments:
@@ -160,14 +168,15 @@ argdecl:
     ;
 
 type1:
-    | TIDENT                          {}
-    | TIDENT LPAREN expr RPAREN       {}
-    | TYPEOF LPAREN expr RPAREN       {}
-    | ARRAY LBRACK ixtype RBRACK      {}
+    | tident                               {}
+    | tident LPAREN expr RPAREN            {}
+    | TYPEOF LPAREN expr RPAREN            {}
+    | REGISTER INT LBRACE regfields RBRACE {}
+    | ARRAY LBRACK ixtype RBRACK OF type1  {}
 ;
 
 ixtype:
-    | TIDENT                          {}
+    | tident                          {}
     | expr DOTDOT expr                {}
 ;
 
@@ -177,32 +186,33 @@ ixtype:
     ;
 
 stmt:
-    | option(CONSTANT) type1 IDENT option(preceded(EQ, expr)) SEMI {}
-    | lexpr EQ expr SEMI                     {}
-    | UNDEFINED SEMI                         {}
-    | UNPREDICTABLE SEMI                     {}
-    | SEE STRING SEMI                        {}
-    | ASSERT expr SEMI                       {}
-    | RETURN expr SEMI                       {}
-    | FAIL                                   {}
-    | SKIP                                   {}
-    | IF expr THEN block1 list(elsif_s)               {}
-    | IF expr THEN block1 list(elsif_s) ELSE block1    {}
-    | FOR IDENT EQ expr direction expr block {}
-    | CASE expr OF INDENT separated_list(EOL, alt) DEDENT {}
-    | WHILE expr DO INDENT list(stmt) DEDENT          {}
-    | REPEAT INDENT list(stmt) DEDENT UNTIL expr SEMI {}
+    | option(CONSTANT) type1 separated_list(COMMA, ident) SEMI {}
+    | option(CONSTANT) type1 ident option(preceded(EQ, expr)) SEMI {}
+    | lexpr EQ expr SEMI                                   {}
+    | qualident LPAREN separated_list(COMMA, expr) RPAREN SEMI {}
+    | UNDEFINED SEMI                                       {}
+    | UNPREDICTABLE SEMI                                   {}
+    | IMPDEF STRING SEMI                                   {}
+    | SEE STRING SEMI                                      {}
+    | ASSERT expr SEMI                                     {}
+    | RETURN option(expr) SEMI                             {}
+    | SKIP SEMI                                            {}
+    | IF expr THEN block1 list(elsif_s)                    {}
+    | IF expr THEN block1 list(elsif_s) ELSE block1        {}
+    | FOR IDENT EQ expr direction expr block               {}
+    | CASE expr OF INDENT list(alt) DEDENT                 {}
+    | WHILE expr DO INDENT list(stmt) DEDENT               {}
+    | REPEAT INDENT list(stmt) DEDENT UNTIL expr SEMI      {}
 ;
 
 block1:
-    | INDENT separated_list(EOL,stmt) DEDENT {}
-    | nonempty_list(stmt) {}
+    | INDENT nonempty_list(stmt) DEDENT {}
+    | nonempty_list(stmt)               {}
     ;
 
 block:
-    | INDENT separated_list(EOL,stmt) DEDENT {}
-    | list(stmt) EOL {}
-    // | list(stmt) {}
+    | INDENT nonempty_list(stmt) DEDENT {}
+    | list(stmt)                        {}
     ;
 
 elsif_s: ELSIF expr THEN block1 {}
@@ -233,62 +243,77 @@ pattern:
     ;
 
 lexpr:
-    | MINUS                           {}
-    | IDENT                           {}
-    | lexpr LBRACK expr RBRACK        {}
-    | lexpr DOT ident                 {}
-    | lexpr DOT LT separated_nonempty_list(COMMA, IDENT) GT     {}
-    | LPAREN separated_nonempty_list(COMMA, lexpr) RPAREN   { }
+    | MINUS                                                         {}
+    | qualident                                                     {}
+    | lexpr DOT ident                                               {}
+    | lexpr DOT LBRACK separated_nonempty_list(COMMA, ident) RBRACK {}
+    | lexpr LBRACK separated_list(COMMA, slice) RBRACK              {}
+    | LBRACK separated_list(COMMA, lexpr) RBRACK                    {}
+    | LPAREN separated_nonempty_list(COMMA, lexpr) RPAREN           {}
 ;
 
 aexpr:
-    | INT                             { }
-    | FLOAT                           { }
-    | HEX                             { }
-    | BIN                             { }
-    | MASK                            { }
-    | STRING                          { }
-    | ident                           { }
-    | ident LPAREN separated_list(COMMA, expr) RPAREN {}
-    | LPAREN separated_nonempty_list(COMMA, expr) RPAREN   { }
-    | LBRACE separated_list(COMMA, element) RBRACE  {}
-    | unop aexpr                      { }
-    | type1 UNKNOWN                   {}
-    | type1 IMPDEF                    {}
+    | INT                                                 {}
+    | REAL                                                {}
+    | HEX                                                 {}
+    | BIN                                                 {}
+    | STRING                                              {}
+    | MASK                                                {}
+    | qualident                                           {}
+    | qualident LPAREN separated_list(COMMA, expr) RPAREN {}
+    | LPAREN separated_nonempty_list(COMMA, expr) RPAREN  {}
+    | unop aexpr                                          {}
+    | type1 UNKNOWN                                       {}
+    | type1 IMPDEF option(STRING)                         {}
+;
 
 bexpr:
-    | aexpr {}
-    | aexpr LBRACK expr RBRACK     { }
-    | aexpr DOT ident                  {}
-    | aexpr DOT LT separated_nonempty_list(COMMA, IDENT) GT     {}
-    // note that the following creates an ambiguity:
-    // x < y  vs.  x < y >
-    // one option is to support 0 < x < 10
-    | aexpr LT separated_nonempty_list(COMMA, slice) GT     {}
-    | aexpr cmpop expr                 { }
-    | aexpr binop expr                 { }
+    | aexpr                                                         {}
+    | bexpr DOT ident                                               {}
+    | bexpr DOT LBRACK separated_nonempty_list(COMMA, ident) RBRACK {}
+    | bexpr LBRACK separated_list(COMMA, slice) RBRACK     {}
+    | bexpr IN set                   {}
+    | bexpr IN MASK                  {}
 ;
 
 cexpr:
-    | IF expr THEN expr list(elsif_e) ELSE bexpr   { }
-    | bexpr {}
+    | bexpr cmpop cexpr                 {}
+    | bexpr binop cexpr                 {}
+    | bexpr COLON cexpr                 {}
+    | bexpr                             {}
+;
+
+(* Same as cexpr but without "x : y".  Used in slices *)
+cexpr2:
+    | bexpr cmpop cexpr2                 {}
+    | bexpr binop cexpr2                 {}
+    | bexpr                              {}
+;
+
+dexpr:
+    | IF expr THEN expr list(elsif_e) ELSE expr   {}
+    | cexpr {}
     ;
 
 expr:
-    cexpr {}
+    dexpr {}
     ;
 
 elsif_e: ELSIF expr THEN expr {}
 
 slice:
-      | INT                  {}
-      | INT COLON     INT    {}
-      | INT PLUSCOLON INT    {}
+      | cexpr2                    {}
+      | cexpr2 COLON     cexpr2   {}
+      | cexpr2 PLUSCOLON cexpr2   {}
 ;
 
 element:
       | expr option(DOTDOT; expr {})     {}
 ;
+
+set:
+    | LBRACE separated_list(COMMA, element) RBRACE        {}
+    ;
 
 unop:
     | MINUS                  {}
@@ -312,7 +337,6 @@ binop:
     | MINUS      {}
     | STAR       {}
     | SLASH      {}
-    | COLON      {}
     | CARET      {}
     | AMPAMP     {}
     | BARBAR     {}
@@ -324,5 +348,4 @@ binop:
     | REM        {}
     | DIV        {}
     | MOD        {}
-    | IN         {}
 ;
