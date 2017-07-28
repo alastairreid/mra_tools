@@ -1,13 +1,18 @@
 .PHONY: default
 default: all
 
-VERSION = 00bet3.2
-XMLDIR = v8.2
+VERSION = 00bet4
+XMLDIR = v8.3
 
-regs.asl: ${XMLDIR}/SysReg_v82A_xml-${VERSION}
+A64 = ${XMLDIR}/ISA_v83A_A64_xml_$(VERSION)
+A32 = ${XMLDIR}/ISA_v83A_AArch32_xml_$(VERSION)
+SYSREG = ${XMLDIR}/SysReg_v83A_xml-$(VERSION)
+
+
+regs.asl: ${SYSREG}
 	bin/reg2asl.py $< -o $@
 
-arch.asl arch.tag: ${XMLDIR}/ISA_v82A_AArch32_xml_${VERSION} ${XMLDIR}/ISA_v82A_A64_xml_${VERSION}
+arch.asl arch.tag: ${A32} ${A64}
 	bin/instrs2asl.py $^
 
 all :: regs.asl
