@@ -157,14 +157,6 @@ def readShared(files):
             if r.name == 'shared/functions/system/PSTATE': r.defs.add("PSTATE")
             if "PSTATE" in r.code: r.deps.add("PSTATE")
 
-            # workaround: fix syntax error
-            r.code = r.code.replace("while address != FAR[];", "until address == FAR[];")
-
-            # workaround: fix missing enumerated constant
-            r.code = r.code.replace("Unpredictable_TBD};", "Unpredictable_NOOPTYPES, Unpredictable_TBD};")
-            # workaround: fix missing namespace
-            r.code = r.code.replace("if WatchpointByteMatch", "if AArch64.WatchpointByteMatch")
-
             asl[r.name] = r
 
     return (asl, names)
@@ -253,9 +245,6 @@ def readInstruction(xml,names):
         dec_asl = readASL(iclass.find('ps_section/ps'))
         dec_asl.patchDependencies(names)
 
-        # Workaround: Normalise SEE statements (AArch32 version omits quotes)
-        dec_asl.code = re.sub(r'SEE\s+([^"][^;]*);', r'SEE "\1";', dec_asl.code)
-
         name = dec_asl.name if insn_set in ["T16","T32","A32"] else encoding.attrib['psname']
         encs.append((name, insn_set, fields2, dec_asl))
 
@@ -329,8 +318,6 @@ def main():
             xml = ET.parse(inf)
             instr = readInstruction(xml,names)
             if instr is None: continue
-            # workaround: skip instructions with problems
-            if instr.name in ["aarch32/VCVT_ds/A","aarch32/VMOV_r/A"]: continue
 
             if encodings != []: # discard encodings from unwanted InsnSets
                 encs = [ e for e in instr.encs if e[1] in encodings ]
