@@ -89,6 +89,8 @@ class Instruction:
 # Extracting information from XML files
 ########################################################################
 
+alt_slice_syntax = False
+
 '''
 Read pseudocode to extract ASL.
 '''
@@ -112,7 +114,28 @@ def readASL(ps):
     # drop file references in links
     deps = { re.sub('([^#]+#)','',x) for x in deps }
 
-    return ASL(name, ET.tostring(chunk, method="text").decode().rstrip()+"\n", defs, deps)
+    code = ET.tostring(chunk, method="text").decode().rstrip()+"\n"
+
+    if alt_slice_syntax:
+        code = "\n".join(map(patchSlices, code.split('\n')))
+
+    return ASL(name, code, defs, deps)
+
+
+'''
+Classic ASL syntax has a syntax ambiguity involving the use of
+angles (< and >) both to delimit bitslices and as comparision
+operators.
+We make parsing easier by converting bitslices to use square brackets
+using a set of heuristics to distinguish bitslices from comparisions.
+'''
+def patchSlices(x):
+    reIndex = r'[0-9a-zA-Z_+*\-()[\]. ]+'
+    rePart = reIndex+"(:"+reIndex+")?"
+    reParts = rePart+"(,"+rePart+")*"
+    x = re.sub("(\S)<("+reParts+")>", r'\1[\2]',x)
+    x = re.sub("(\S)<("+reParts+")>", r'\1[\2]',x)
+    return x
 
 
 '''
@@ -283,9 +306,13 @@ def reachable(graph, roots, cuts):
 ########################################################################
 
 def main():
+    global alt_slice_syntax
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--verbose', '-v', help='Use verbose output',
                         action = 'count', default=0)
+    parser.add_argument('--altslicesyntax', help='Convert to alternative slice syntax',
+                        action='store_true', default=False)
     parser.add_argument('--tag',  help='Output tag file for instructions',
                         metavar='FILE', default='arch.tag')
     parser.add_argument('--asl',  help='Output asl file for support code',
@@ -295,6 +322,8 @@ def main():
     parser.add_argument('--arch', help='Optional list of architecture states to extract',
                         choices=["AArch32", "AArch64"], default=[], action='append')
     args = parser.parse_args()
+
+    alt_slice_syntax = args.altslicesyntax
 
     encodings = []
     if "AArch32" in args.arch: encodings.extend(["T16", "T32", "A32"])
