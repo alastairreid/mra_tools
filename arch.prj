@@ -1,0 +1,8 @@
+:set preprocessor=
+:load regs.asl
+:load types.asl
+:load arch.asl
+:load arch.tag
+:load stubs.asl
+:prerun
+:quit
