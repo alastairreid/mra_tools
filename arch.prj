@@ -3,6 +3,12 @@
 :load types.asl
 :load arch.asl
 :load arch.tag
-:load stubs.asl
-:prerun
-:quit
+:load support/aes.asl
+:load support/barriers.asl
+:load support/debug.asl
+:load support/feature.asl
+:load support/hints.asl
+:load support/interrupts.asl
+:load support/memory.asl
+:load support/stubs.asl
+:load support/fetchdecode.asl
