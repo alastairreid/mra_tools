@@ -211,7 +211,8 @@ def readInstruction(xml,names):
             if isT16: hi = hi-16
             lo = hi - wd + 1
             nm  = b.attrib.get('name', '_')
-            consts = ''.join([ 'x'*int(c.attrib.get('colspan','1')) if c.text is None else c.text for c in b.findall('c') ])
+            ignore = 'psbits' in b.attrib and b.attrib['psbits'] == 'x'*wd
+            consts = ''.join([ 'x'*int(c.attrib.get('colspan','1')) if c.text is None or ignore else c.text for c in b.findall('c') ])
 
             # if adjacent entries are two parts of same field, join them
             # e.g., imm8<7:1> and imm8<0> or opcode[5:2] and opcode[1:0]
