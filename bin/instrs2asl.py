@@ -201,7 +201,7 @@ def readNotice(xml):
         para = para.replace("&#8482;", '(TM)')
         para = para.replace("&#169;", '(C)')
         para = para.replace("&#174;", '(R)')
-        lines = [ '// '+l for l in para.split('\n') ]
+        lines = [ ('// '+l).rstrip() for l in para.split('\n') ]
         notice.extend(lines)
     notice.append('/'*72)
     return '\n'.join(notice)
