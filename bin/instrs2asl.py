@@ -44,11 +44,15 @@ class ASL:
 
     # workaround: patch all ASL code with extra dependencies
     def patchDependencies(self, names):
-        for m in re.finditer('''([a-zA-Z_]\w+(\.\w+)?\[?)''', self.code):
-            if m.group(1) in names:
-                self.deps |= {m.group(1)}
+        for line in self.code.splitlines():
+            l = re.split('//', line)[0]  # drop comments
+            for m in re.finditer('''([a-zA-Z_]\w+(\.\w+)?\[?)''', l):
+                if m.group(1) in names:
+                    self.deps |= {m.group(1)}
         self.deps -= self.defs
-
+        # Workaround: ProcState SP field incorrectly handled
+        if self.name == "shared/functions/system/ProcState": self.deps -= {"SP", "SP.write.none"}
+        if "Unpredictable_WBOVERLAPST" in self.defs: self.deps -= {"PSTATE"}
 
 class Instruction:
     '''Representation of Instructions'''
