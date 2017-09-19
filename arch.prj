@@ -12,3 +12,7 @@
 :load support/memory.asl
 :load support/stubs.asl
 :load support/fetchdecode.asl
+#ifdef ARCH_USERMODE_ONLY
+"Architecture subset: usermode only"
+:load support/usermode.asl
+#endif
