@@ -43,16 +43,44 @@ class ASL:
         return "ASL{"+", ".join([self.name, str(self.defs), str(self.deps)])+"}"
 
     # workaround: patch all ASL code with extra dependencies
-    def patchDependencies(self, names):
+    def patchDependencies(self, chunks):
         for line in self.code.splitlines():
             l = re.split('//', line)[0]  # drop comments
             for m in re.finditer('''([a-zA-Z_]\w+(\.\w+)?\[?)''', l):
-                if m.group(1) in names:
-                    self.deps |= {m.group(1)}
+                n = m.group(1)
+                if n in chunks:
+                    self.deps |= {chunks[n].name}
+                    self.deps |= {n}
+                    # print("Adding dep", n, chunks[n].name)
         self.deps -= self.defs
         # Workaround: ProcState SP field incorrectly handled
         if self.name == "shared/functions/system/ProcState": self.deps -= {"SP", "SP.write.none"}
         if "Unpredictable_WBOVERLAPST" in self.defs: self.deps -= {"PSTATE"}
+
+    def toPrototype(self):
+        '''Strip function bodies out of ASL
+           This is used when a function is cut but we still need to keep
+           the function body.'''
+        # build groups of lines based on whether they have matching numbers of parentheses
+        groups = []
+        group  = []
+        parens = 0
+        for l in self.code.splitlines():
+            group.append(l)
+            # update count of matching parentheses
+            openers = len(re.findall('[([]', l))
+            closers = len(re.findall('[)\]]', l))
+            parens = parens + openers - closers
+            if parens == 0:
+                groups.append(group)
+                group = []
+        # crude heuristic for function bodies: starts with blank chars
+        # beware: only works if the ASL block only contains functions
+        lines = [ l for g in groups if not g[0].startswith("    ") for l in g ]
+        # print("Generating prototype for "+self.name)
+        # print("  "+"\n  ".join(lines))
+        return ASL(self.name, '\n'.join(lines), self.defs, set())
+
 
 class Instruction:
     '''Representation of Instructions'''
@@ -282,19 +310,16 @@ def readInstruction(xml,names):
 # Reachability analysis
 ########################################################################
 
-# Visit all nodes reachable from roots without passing through cuts
+# Visit all nodes reachable from roots
 # Returns topologically sorted list of reachable nodes
-# and set of reachable nodes
-def reachable(graph, roots, cuts):
+# and set of reachable nodes.
+def reachable(graph, roots):
     visited = set()
     sorted = []
 
     def worker(seen, f):
         if f in seen:
             # print("Cyclic dependency",f)
-            pass
-        elif f in cuts:
-            # print("Cutting", f)
             pass
         elif f not in visited:
             visited.add(f)
@@ -304,6 +329,27 @@ def reachable(graph, roots, cuts):
     for f in roots: worker([], f)
     return (sorted, visited)
 
+########################################################################
+# Canary detection
+########################################################################
+
+# Check all paths from a function 'f' to any function in the list 'canaries'
+# and report every such path.
+# 'callers' is a reversed callgraph (from callees back to callers)
+# Prints paths in reverse order (starting function first, root last) because that
+# helps identify the common paths to the the starting function f
+#
+# Usage is to iterate over all canaries 'f' searching for paths that should not exist
+def checkCanaries(callers, isChunk, roots, f, path):
+    if f in path: # ignore recursion
+        pass
+    elif f in roots:
+        path = [ g for g in path+[f] if not isChunk(g) ]
+        print("  Canary "+" ".join(path))
+    elif callers[f]:
+        path = path + [f]
+        for g in callers[f]:
+            checkCanaries(callers, isChunk, roots, g, path)
 
 ########################################################################
 # Main
@@ -323,6 +369,8 @@ def main():
                         metavar='FILE', default='arch.asl')
     parser.add_argument('dir', metavar='<dir>',  nargs='+',
                         help='input directories')
+    parser.add_argument('--filter',  help='Optional input json file to filter definitions',
+                        metavar='FILE', default=[], nargs='*')
     parser.add_argument('--arch', help='Optional list of architecture states to extract',
                         choices=["AArch32", "AArch64"], default=[], action='append')
     args = parser.parse_args()
@@ -341,8 +389,14 @@ def main():
     notice = readNotice(ET.parse(os.path.join(args.dir[0], 'notice.xml')))
     (shared,names) = readShared([ f for d in args.dir for f in glob.glob(os.path.join(d, 'shared_pseudocode.xml'))])
 
+    # reverse mapping of names back to the chunks containing them
+    chunks = {}
     for a in shared.values():
-        a.patchDependencies(names)
+        for d in a.defs:
+            chunks[d] = a
+
+    for a in shared.values():
+        a.patchDependencies(chunks)
 
     instrs = []
     for d in args.dir:
@@ -350,7 +404,7 @@ def main():
             name = re.search('.*/(\S+).xml',inf).group(1)
             if name == "onebigfile": continue
             xml = ET.parse(inf)
-            instr = readInstruction(xml,names)
+            instr = readInstruction(xml,chunks)
             if instr is None: continue
 
             if encodings != []: # discard encodings from unwanted InsnSets
@@ -370,14 +424,47 @@ def main():
             print("Dependencies", f.name, "=", str(f.deps))
             print("Definitions", f.name, "=", str(f.defs))
 
-    # reverse mapping of names back to the chunks containing them
-    chunks = {}
-    for a in shared.values():
-        for d in a.defs:
-            chunks[d] = a
+    roots    = set()
+    cuts     = set()
+    canaries = set()
+    for fn in args.filter:
+        with open(fn, "r") as f:
+            try:
+                filter = json.load(f)
+            except ValueError as err:
+                print(err)
+                sys.exit(1)
+            for fun in filter['roots']:
+                if fun not in chunks: print("Warning: unknown root", fun)
+                roots.add(fun)
+            for fun in filter['cuts']:
+                if fun not in chunks: print("Warning: unknown cut", fun)
+                cuts.add(fun)
+            for fun in filter['canaries']:
+                if fun not in chunks: print("Warning: unknown canary", fun)
+                canaries.add(fun)
+
+            # treat instrs as a list of rexexps
+            patterns = [ re.compile(p) for p in filter['instructions'] ]
+            instrs = [ i for i in instrs
+                         if any(regex.match(i.name) for regex in patterns)
+                     ]
+            # print("\n".join(sorted([ i.name for i in instrs ])))
+    # print("\n".join(sorted(chunks.keys())))
+
+    # Replace all cutpoints with a stub so that we keep dependencies
+    # on the argument/result types but drop the definition and any
+    # dependencies on the definition.
+    for x,s in shared.items():
+        if any([d in cuts for d in s.defs]):
+            if args.verbose > 0: print("Cutting", x)
+            t = s.toPrototype()
+            t.patchDependencies(chunks)
+            # print("Cut", t)
+            shared[x] = t
 
     # build bipartite graph consisting of chunk names and functions
-    deps  = defaultdict(set) # dependencies between functions
+    deps = defaultdict(set) # dependencies between functions
     for a in shared.values():
         deps[a.name] = a.deps
         for d in a.defs:
@@ -386,21 +473,34 @@ def main():
     if args.verbose > 2:
         for f in deps: print("Dependency", f, "on", str(deps[f]))
 
-    if encodings == []:
+
+    if encodings == [] and args.filter == []:
         # default: you get everything
         if args.verbose > 0: print("Keeping entire specification")
-        roots = { x for x in shared }
+        roots |= { x for x in shared }
     else:
         if args.verbose > 0: print("Discarding definitions unreachable from",
                                ", ".join(encodings), " instructions")
-        roots = set() # root functions
         for i in instrs:
             for (_,_,_,dec) in i.encs: roots |= dec.deps
             if i.post: roots |= i.post.deps
             roots |= i.exec.deps
+    (live, _) = reachable(deps, roots)
 
-    cuts = set()
-    (live, _) = reachable(deps, roots, cuts)
+    # Check whether canaries can be reached from roots
+    if canaries != []:
+        if args.verbose > 0: print("Checking unreachability of", ", ".join(canaries))
+        rcg = defaultdict(set) # reverse callgraph
+        for f, ds in deps.items():
+            for d in ds:
+                rcg[d].add(f)
+        for canary in canaries:
+            if canary in live:
+                checkCanaries(rcg, lambda x: x in shared, roots, canary, [])
+
+    # print("Live:", " ".join(live))
+    # print()
+    # print("Shared", " ".join(shared.keys()))
 
     live_chunks = [ shared[x] for x in live if x in shared ]
 
