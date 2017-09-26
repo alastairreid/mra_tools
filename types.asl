@@ -1,14 +1,14 @@
-type CPACRType   = TypeOf(CPACR_EL1);
-type CNTKCTLType = TypeOf(CNTKCTL_EL1);
-type ESRType     = TypeOf(ESR_ELx);
-type FPCRType    = TypeOf(FPCR);
-type MAIRType    = TypeOf(MAIR_EL1);
-type SCRType     = TypeOf(SCR);
-type SCTLRType   = TypeOf(SCTLR_EL1);
+type CPACRType   = typeof(CPACR_EL1);
+type CNTKCTLType = typeof(CNTKCTL_EL1);
+type ESRType     = typeof(ESR_ELx);
+type FPCRType    = typeof(FPCR);
+type MAIRType    = typeof(MAIR_EL1);
+type SCRType     = typeof(SCR);
+type SCTLRType   = typeof(SCTLR_EL1);
 
 // The following appear to be missing from the XML
 // The following is not necessarily correct - but it lets us keep going
-TypeOf(TTBCR) TTBCR_S;
+typeof(TTBCR) TTBCR_S;
 __register 32 { 0+:24 PC, 29+:2 EL, 31 NS } EDPCSRhi;
 __register 64 { 0 E, 1+:2 FM, 12+:48 LIMIT } PMBLIMITR_EL1;
 __register 64 { 0+:6 FSC, 0+:6 BSC, 16 COLL, 17 S, 18 EA, 19 DL, 26+:6 EC } PMBSR_EL1;
