@@ -23,6 +23,7 @@ open Parsersupport
 %token ASSERT
 %token BUILTIN
 %token CASE
+%token CATCH
 %token CONSTANT
 %token DIV
 %token DO
@@ -47,9 +48,10 @@ open Parsersupport
 %token RETURN
 %token REGISTER
 %token SEE
-%token SKIP
 %token THEN
+%token THROW
 %token TO
+%token TRY
 %token TYPE
 %token TYPEOF
 %token UNDEFINED
@@ -99,22 +101,6 @@ def:
     | definition {}
     ;
 
-definition:
-    | BUILTIN TYPE tidentdecl SEMI                                              {}
-    | TYPE tidentdecl SEMI                                                      {}
-    | TYPE tidentdecl IS LPAREN separated_list(COMMA,field) RPAREN option(SEMI) {}
-    | TYPE tidentdecl EQ type1 SEMI                                             {}
-    | ENUM tidentdecl LBRACE separated_list(COMMA,IDENT) RBRACE SEMI            {}
-    | CONSTANT type1 IDENT EQ expr SEMI                                         {}
-    | ARRAY type1 IDENT LBRACK ixtype RBRACK SEMI                               {}
-    | REGISTER INT LBRACE regfields RBRACE IDENT SEMI                           {}
-    | type1 qualident SEMI                                                      {}
-    | returntype qualident formals SEMI                                         {}
-    | returntype qualident formals block                                        {}
-    | qualident formals SEMI                                                    {}
-    | qualident formals block                                                   {}
-    ;
-
 // match an identifier in a context where the identifier will be
 // declared as a type identifier
 tidentdecl:
@@ -133,15 +119,48 @@ tident:
     | QUALIFIER DOT TIDENT {}
     ;
 
-field:
-    | type1 ident {}
-    ;
-
 // workaround: allow "type" as an identifier in some contexts
 ident:
     | IDENT {}
     | TYPE  {}
     ;
+
+definition:
+    | type_definition                                   {}
+    | variable_or_constant_definition                   {}
+    | function_or_procedure_definition                  {}
+    ;
+
+type_definition:
+    | BUILTIN TYPE tidentdecl SEMI                                              {}
+    | TYPE tidentdecl SEMI                                                      {}
+    | TYPE tidentdecl IS LPAREN separated_list(COMMA,field) RPAREN option(SEMI) {}
+    | TYPE tidentdecl EQ type1 SEMI                                             {}
+    | ENUM tidentdecl LBRACE separated_list(COMMA,IDENT) RBRACE SEMI            {}
+    ;
+
+field:
+    | type1 ident {}
+    ;
+
+type1:
+    | tident                               {}
+    | tident LPAREN expr RPAREN            {}
+    | TYPEOF LPAREN expr RPAREN            {}
+    | REGISTER INT LBRACE regfields RBRACE {}
+    | ARRAY LBRACK ixtype RBRACK OF type1  {}
+;
+
+ixtype:
+    | tident                          {}
+    | expr DOTDOT expr                {}
+;
+
+variable_or_constant_definition:
+    | CONSTANT type1 IDENT EQ expr SEMI                 {}
+    | ARRAY type1 IDENT LBRACK ixtype RBRACK SEMI       {}
+    | REGISTER INT LBRACE regfields RBRACE IDENT SEMI   {}
+    | type1 qualident SEMI                              {}
 
 regfields:
     | separated_list(COMMA, regfield) {}
@@ -149,6 +168,13 @@ regfields:
 
 regfield:
     | separated_nonempty_list(COMMA, slice) IDENT {}
+    ;
+
+function_or_procedure_definition:
+    | returntype qualident formals SEMI                 {}
+    | returntype qualident formals block                {}
+    | qualident formals SEMI                            {}
+    | qualident formals block                           {}
     ;
 
 formals:
@@ -167,60 +193,49 @@ argdecl:
     | type1 option(AMP) ident {}
     ;
 
-type1:
-    | tident                               {}
-    | tident LPAREN expr RPAREN            {}
-    | TYPEOF LPAREN expr RPAREN            {}
-    | REGISTER INT LBRACE regfields RBRACE {}
-    | ARRAY LBRACK ixtype RBRACK OF type1  {}
-;
-
-ixtype:
-    | tident                          {}
-    | expr DOTDOT expr                {}
-;
-
 %inline returntype:
     | type1                                      {}
     | LPAREN separated_list(COMMA, type1) RPAREN {}
     ;
 
 stmt:
+    | assignment_stmt                                      {}
+    | simple_stmt                                          {}
+    | conditional_stmt                                     {}
+    | repetitive_stmt                                      {}
+    | exceptional_stmt                                     {}
+    ;
+
+assignment_stmt:
     | option(CONSTANT) type1 separated_list(COMMA, ident) SEMI {}
     | option(CONSTANT) type1 ident option(preceded(EQ, expr)) SEMI {}
     | lexpr EQ expr SEMI                                   {}
-    | qualident LPAREN separated_list(COMMA, expr) RPAREN SEMI {}
-    | UNDEFINED SEMI                                       {}
-    | UNPREDICTABLE SEMI                                   {}
-    | IMPDEF STRING SEMI                                   {}
-    | SEE STRING SEMI                                      {}
-    | ASSERT expr SEMI                                     {}
-    | RETURN option(expr) SEMI                             {}
-    | SKIP SEMI                                            {}
-    | IF expr THEN block1 list(elsif_s)                    {}
-    | IF expr THEN block1 list(elsif_s) ELSE block1        {}
-    | FOR IDENT EQ expr direction expr block               {}
-    | CASE expr OF INDENT list(alt) DEDENT                 {}
-    | WHILE expr DO INDENT list(stmt) DEDENT               {}
-    | REPEAT INDENT list(stmt) DEDENT UNTIL expr SEMI      {}
-;
-
-block1:
-    | INDENT nonempty_list(stmt) DEDENT {}
-    | nonempty_list(stmt)               {}
     ;
 
-block:
-    | INDENT nonempty_list(stmt) DEDENT {}
-    | list(stmt)                        {}
+lexpr:
+    | MINUS                                                         {}
+    | qualident                                                     {}
+    | lexpr DOT ident                                               {}
+    | lexpr DOT LBRACK separated_nonempty_list(COMMA, ident) RBRACK {}
+    | lexpr LBRACK separated_list(COMMA, slice) RBRACK              {}
+    | LBRACK separated_list(COMMA, lexpr) RBRACK                    {}
+    | LPAREN separated_nonempty_list(COMMA, lexpr) RPAREN           {}
+;
+
+simple_stmt:
+    | qualident LPAREN separated_list(COMMA, expr) RPAREN SEMI {}
+    | RETURN option(expr) SEMI                             {}
+    | ASSERT expr SEMI                                     {}
+    | UNPREDICTABLE SEMI                                   {}
+    | IMPDEF STRING SEMI                                   {}
+    ;
+
+conditional_stmt:
+    | IF expr THEN block1 list(elsif_s) option(preceded(ELSE, block1))  {}
+    | CASE expr OF INDENT list(alt) DEDENT                      {}
     ;
 
 elsif_s: ELSIF expr THEN block1 {}
-
-direction:
-    | TO      {}
-    | DOWNTO  {}
-    ;
 
 alt:
     | WHEN separated_list(COMMA,pattern) option(altcond) block {}
@@ -238,19 +253,43 @@ pattern:
     | MASK                                         {}
     | IDENT                                        {}
     | MINUS                                        {}
-    | BANG pattern                                 {}
     | LPAREN separated_list(COMMA, pattern) RPAREN {}
     ;
 
-lexpr:
-    | MINUS                                                         {}
-    | qualident                                                     {}
-    | lexpr DOT ident                                               {}
-    | lexpr DOT LBRACK separated_nonempty_list(COMMA, ident) RBRACK {}
-    | lexpr LBRACK separated_list(COMMA, slice) RBRACK              {}
-    | LBRACK separated_list(COMMA, lexpr) RBRACK                    {}
-    | LPAREN separated_nonempty_list(COMMA, lexpr) RPAREN           {}
-;
+block:
+    | INDENT nonempty_list(stmt) DEDENT {}
+    | list(stmt)                        {}
+    ;
+
+block1:
+    | INDENT nonempty_list(stmt) DEDENT {}
+    | nonempty_list(stmt)               {}
+    ;
+
+repetitive_stmt:
+    | FOR IDENT EQ expr direction expr INDENT list(stmt) DEDENT {}
+    | WHILE expr DO INDENT list(stmt) DEDENT                    {}
+    | REPEAT INDENT list(stmt) DEDENT UNTIL expr SEMI           {}
+    ;
+
+direction:
+    | TO      {}
+    | DOWNTO  {}
+    ;
+
+exceptional_stmt:
+    | THROW ident SEMI                                     {}
+    | UNDEFINED SEMI                                       {}
+    | SEE STRING SEMI                                      {}
+    | TRY INDENT list(stmt) DEDENT
+      CATCH ident
+      INDENT list(catcher) DEDENT {}
+    ;
+
+catcher:
+    | WHEN expr block {}
+    | OTHERWISE block {}
+    ;
 
 aexpr:
     | INT                                                 {}

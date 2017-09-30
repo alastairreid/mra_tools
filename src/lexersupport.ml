@@ -16,6 +16,7 @@ let string_of_token (t: Parser.token): string =
     | BUILTIN   -> "builtin"
     | CARET     -> "caret"
     | CASE      -> "case"
+    | CATCH     -> "catch"
     | COLON     -> "colon"
     | COMMA     -> "comma"
     | CONSTANT  -> "constant"
@@ -74,13 +75,14 @@ let string_of_token (t: Parser.token): string =
     | RPAREN    -> "rparen"
     | SEE       -> "see"
     | SEMI      -> "semi"
-    | SKIP      -> "skip"
     | SLASH     -> "slash"
     | STAR      -> "star"
     | STRING(x) -> "string:" ^ x
     | THEN      -> "then"
+    | THROW     -> "throw"
     | TIDENT(x) -> "tident:"^x
     | TO        -> "to"
+    | TRY       -> "try"
     | TYPE      -> "type"
     | TYPEOF    -> "typeof"
     | UNDEFINED -> "undefined"

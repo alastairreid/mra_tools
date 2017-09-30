@@ -24,6 +24,7 @@ let keywords : (string, Parser.token) List.Assoc.t = [
     ("array",         ARRAY);
     ("assert",        ASSERT);
     ("case",          CASE);
+    ("catch",         CATCH);
     ("constant",      CONSTANT);
     ("do",            DO);
     ("downto",        DOWNTO);
@@ -38,7 +39,9 @@ let keywords : (string, Parser.token) List.Assoc.t = [
     ("repeat",        REPEAT);
     ("return",        RETURN);
     ("then",          THEN);
+    ("throw",         THROW);
     ("to",            TO);
+    ("try",           TRY);
     ("type",          TYPE);
     ("typeof",        TYPEOF);
     ("until",         UNTIL);
