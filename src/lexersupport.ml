@@ -45,7 +45,7 @@ let string_of_token (t: Parser.token): string =
     | IMPDEF    -> "impdef"
     | IN        -> "in"
     | INDENT    -> "indent"
-    | INT(x)    -> "int:" ^ string_of_int x
+    | INT(x)    -> "int:" ^ x
     | IS        -> "is"
     | LBRACE    -> "lbrace"
     | LBRACK    -> "lbrack"

@@ -64,7 +64,7 @@ rule token = parse
     | '\'' ['0' '1' 'x' ' ']* '\''           as lxm { MASK(lxm) }
     | '0''x'['0'-'9' 'A' - 'F' 'a'-'f' '_']+ as lxm { HEX(lxm) }
     | ['0'-'9']+ '.' ['0'-'9']+              as lxm { REAL(lxm) }
-    | ['0'-'9']+                             as lxm { INT(int_of_string lxm) }
+    | ['0'-'9']+                             as lxm { INT(lxm) }
     | ['a'-'z' 'A'-'Z' '_'] ['a'-'z' 'A'-'Z' '0'-'9' '_']* as lxm {
            ( match List.Assoc.find keywords lxm with
            | Some x -> x
