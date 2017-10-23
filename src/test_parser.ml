@@ -5,7 +5,6 @@ open Lexing
 open Parser
 (* open Asl_parser_pp *)
 open Lexersupport
-open Asl_ast
 
 let _ =
     let lexbuf = Lexing.from_channel stdin in
