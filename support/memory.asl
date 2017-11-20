@@ -14,7 +14,7 @@ __ResetMemoryState()
     __ExclusiveLocal = FALSE;
 
 __ELFWriteMemory(bits(64) address, bits(8) val)
-    __WriteRAM(52, 1, __Memory, address<0 +: 52>, val);
+    __WriteRAM(52, 1, __Memory, address[0 +: 52], val);
     return;
 
 bits(8*size) _Mem[AddressDescriptor desc, integer size, AccessDescriptor accdesc]
@@ -28,12 +28,12 @@ _Mem[AddressDescriptor desc, integer size, AccessDescriptor accdesc] = bits(8*si
     bits(52) address = desc.paddress.physicaladdress;
     assert address == Align(address, size);
 
-    if address == 0x13000000<51:0> then // TUBE
+    if address == 0x13000000[51:0] then // TUBE
         if UInt(value) == 0x4 then
             print("Program exited by writing ^D to TUBE\n");
             __abort();
         else
-            putchar(UInt(value<7:0>));
+            putchar(UInt(value[7:0]));
     else
         __WriteRAM(52, size, __Memory, address, value);
     return;

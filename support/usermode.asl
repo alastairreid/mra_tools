@@ -10,18 +10,18 @@
 bits(64) AArch64.BranchAddr(bits(64) vaddress)
     assert !UsingAArch32();
     integer msbit = 51;
-    return ZeroExtend(vaddress<msbit:0>);
+    return ZeroExtend(vaddress[msbit:0]);
 
 bits(size*8) AArch64.MemSingle[bits(64) address, integer size, AccType acctype, boolean wasaligned]
     AddressDescriptor desc;
     AccessDescriptor accdesc;
-    desc.paddress.physicaladdress = address<0 +: 52>;
+    desc.paddress.physicaladdress = address[0 +: 52];
     return _Mem[desc, size, accdesc];
 
 AArch64.MemSingle[bits(64) address, integer size, AccType acctype, boolean wasaligned] = bits(size*8) value
     AddressDescriptor desc;
     AccessDescriptor accdesc;
-    desc.paddress.physicaladdress = address<0 +: 52>;
+    desc.paddress.physicaladdress = address[0 +: 52];
     _Mem[desc, size, accdesc] = value;
     return;
 
