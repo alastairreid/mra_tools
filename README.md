@@ -46,7 +46,7 @@ use the following command.
     make FILTER=--filter=usermode.json all
 
 The subset selected may not contain all the instructions you would want --- see
-[Subsetting][] for more details.
+[Subsetting](#subsetting) for more details.
 
 
 ## Help
