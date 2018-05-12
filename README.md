@@ -17,17 +17,18 @@ The following commands will download ARM's specification and unpack it.
     mkdir -p v8.3
     cd v8.3
 
-    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/A64_v83A_ISA_xml_00bet5.tar.gz
-    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/AArch32_v83A_ISA_xml_00bet5.tar.gz
-    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/ARMv83A-SysReg-00bet5.tar.gz
 
-    tar zxf A64_v83A_ISA_xml_00bet5.tar.gz
-    tar zxf AArch32_v83A_ISA_xml_00bet5.tar.gz
-    tar zxf ARMv83A-SysReg-00bet5.tar.gz
+    wget https://developer.arm.com/-/media/Files/pdf/A64_v83A_ISA_xml_00bet6.1.tar.gz
+    wget https://developer.arm.com/-/media/Files/pdf/AArch32_v83A_ISA_xml_00bet6.1.tar.gz
+    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/ARMv83A-SysReg-00bet6.tar.gz
 
-    tar zxf ISA_v83A_A64_xml_00bet5.tar.gz
-    tar zxf ISA_v83A_AArch32_xml_00bet5.tar.gz
-    tar zxf SysReg_v83A_xml-00bet5.tar.gz
+    tar zxf A64_v83A_ISA_xml_00bet6.1.tar.gz
+    tar zxf AArch32_v83A_ISA_xml_00bet6.1.tar.gz
+    tar zxf ARMv83A-SysReg-00bet6.tar.gz
+
+    tar zxf ISA_v83A_A64_xml_00bet6.tar.gz
+    tar zxf ISA_v83A_AArch32_xml_00bet6.tar.gz
+    tar zxf SysReg_v83A_xml-00bet6.tar.gz
 
     cd ..
 

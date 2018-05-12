@@ -1,11 +1,11 @@
 .PHONY: default
 default: all
 
-VERSION = 00bet5
+VERSION = 00bet6
 XMLDIR = v8.3
 
-A64 = ${XMLDIR}/ISA_v83A_A64_xml_$(VERSION)
-A32 = ${XMLDIR}/ISA_v83A_AArch32_xml_$(VERSION)
+A64 = ${XMLDIR}/ISA_v83A_A64_xml_$(VERSION).1
+A32 = ${XMLDIR}/ISA_v83A_AArch32_xml_$(VERSION).1
 SYSREG = ${XMLDIR}/SysReg_v83A_xml-$(VERSION)
 
 FILTER =
