@@ -248,3 +248,20 @@ unofficial ASL extension to declare a number the location of each field.
 The system register specification also contains a lot of information about
 how to refer to a system register, permission checking, constant value fields,
 etc. but none of that is being extracted at the moment.
+
+
+## Experimental parser, etc.
+
+There is an experimental parser for the language written in ocaml.
+This requires some tools to be installed.  The following instructions are for
+a Mac.
+
+    brew install ocaml opam
+    opam install menhir core
+
+Test it using the following
+
+    make test
+
+At the moment, all it does is parse the ASL code extracted from the XML files.
+It does not have a parser or typechecker.

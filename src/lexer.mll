@@ -1,7 +1,7 @@
 {
 open Parser        (* The type token is defined in parser.mli *)
 open Parsersupport
-open Core.Std
+open Core
 exception Eof
 
 let keywords : (string, Parser.token) List.Assoc.t = [
@@ -66,7 +66,7 @@ rule token = parse
     | ['0'-'9']+ '.' ['0'-'9']+              as lxm { REAL(lxm) }
     | ['0'-'9']+                             as lxm { INT(lxm) }
     | ['a'-'z' 'A'-'Z' '_'] ['a'-'z' 'A'-'Z' '0'-'9' '_']* as lxm {
-           ( match List.Assoc.find keywords lxm with
+           ( match List.Assoc.find keywords lxm ~equal:(=) with
            | Some x -> x
            | None   -> if isTypeIdent(lxm) then TIDENT(lxm)
                        else if String.equal lxm "AArch32" then QUALIFIER(lxm)

@@ -1,4 +1,4 @@
-open Core.Std
+open Core
 open Lexer
 open Lexing
 
@@ -6,7 +6,7 @@ open Parser
 open Lexersupport
 
 let _ =
-    let lexbuf = Lexing.from_channel stdin in
+    let lexbuf = Lexing.from_channel In_channel.stdin in
     try
         let lexer = offside_token Lexer.token in
         (* let lexer = Lexer.token in *)

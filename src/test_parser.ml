@@ -1,4 +1,4 @@
-open Core.Std
+open Core
 open Lexer
 open Lexing
 
@@ -7,11 +7,11 @@ open Parser
 open Lexersupport
 
 let _ =
-    let lexbuf = Lexing.from_channel stdin in
+    let lexbuf = Lexing.from_channel In_channel.stdin in
     try
         let lexer = offside_token Lexer.token in
         ignore (Parser.main lexer lexbuf);
-        (* printf "%s" (pp_raw_declarations decls) *)
+        (* printf "%s" (pp_raw_declarations decls); *)
         printf "Done\n"
     with Parser.Error -> begin
         let curr = lexbuf.Lexing.lex_curr_p in

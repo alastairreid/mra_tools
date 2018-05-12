@@ -1,4 +1,4 @@
-open Core.Std
+open Core
 open Lexer
 open Lexing
 open Parser
@@ -124,9 +124,9 @@ let offside_token (read: Lexing.lexbuf -> Parser.token): (Lexing.lexbuf -> Parse
     let getToken (buf: Lexing.lexbuf): Parser.token = begin
         let useToken _ : Parser.token = begin
             let tok :Parser.token = state.next in
-            if List.mem starters tok then begin
+            if List.mem starters tok ~equal:(=) then begin
                 state.parens <- state.parens + 1
-            end else if (state.parens > 0) && (List.mem enders tok) then begin
+            end else if (state.parens > 0) && (List.mem enders tok ~equal:(=)) then begin
                 state.parens <- state.parens - 1
             end;
             (try

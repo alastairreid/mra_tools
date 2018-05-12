@@ -34,5 +34,7 @@ clean ::
 	$(RM) *.byte
 	$(RM) *.native
 	$(RM) test_{expr,stmt}
+	$(RM) asl.tex
+	$(RM) *.aux *.log *.pdf
 
 # End
