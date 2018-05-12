@@ -67,7 +67,7 @@ def main():
                     for f in slices.keys():
                         ss = slices[f]
                         ss.sort(key=lambda s: int(s[2][0]))
-                        ss = [ slice for (msb,lsb,slice) in reversed(ss) ]
+                        ss = [ (msb,lsb) for (msb,lsb,slice) in reversed(ss) ]
                         fields[f] = ss
 
                     if re.match('^[a-zA-Z_]\w*$', name):
