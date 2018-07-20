@@ -249,10 +249,6 @@ __CycleEnd()
 string __ModeString()
     return "";
 
-// The following overrides are optional but they greatly accelerate execution
-integer UInt(bits(N) x) = "cvt_bits_uint";
-integer SInt(bits(N) x) = "cvt_bits_sint";
-
 ////////////////////////////////////////////////////////////////
 // End
 ////////////////////////////////////////////////////////////////

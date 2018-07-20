@@ -28,8 +28,8 @@ ASL += support/barriers.asl
 ASL += support/debug.asl
 ASL += support/feature.asl
 ASL += support/interrupts.asl
-# ASL += support/memory.asl
-# ASL += support/fetchdecode.asl
+ASL += support/memory.asl
+ASL += support/fetchdecode.asl
 ASL += support/stubs.asl
 ASL += support/usermode.asl
 
