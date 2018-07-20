@@ -159,6 +159,7 @@ __InstructionExecute()
 
         when IsExceptionTaken(exn)
             // Do nothing
+            assert TRUE; // todo: this is a bodge around lack of support for empty statements
 
     if !__BranchTaken then
         _PC = (_PC + (ThisInstrLength() DIV 8))[63:0];

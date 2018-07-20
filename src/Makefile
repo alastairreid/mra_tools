@@ -13,10 +13,20 @@ SRCS += $(wildcard *.ml)
 SRCS += $(wildcard *.mly)
 SRCS += $(wildcard *.mll)
 
-%.native : $(SRCS)
+warnings:
+	@echo ""
+	@echo "### You should expect to see warnings about:"
+	@echo "###     token EOL is unused"
+	@echo "###     7 states have shift/reduce conflicts"
+	@echo "###     33 shift/reduce conflicts were arbitrarily resolved"
+	@echo "###     non-exhaustive pattern matching []"
+	@echo "### These do not seem to cause problems in practice - though they are not ideal"
+	@echo ""
+
+%.native : $(SRCS) warnings
 	ocamlbuild $(FLAGS) $@
 
-%.byte : $(SRCS)
+%.byte : $(SRCS) warnings
 	ocamlbuild $(FLAGS) $@
 
 # Extract test expressions/statements from architecture spec

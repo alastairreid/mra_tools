@@ -181,6 +181,17 @@ def readShared(files):
         xml = ET.parse(f)
         for ps in xml.findall('.//ps_section/ps'):
             r = readASL(ps)
+            # workaround: patch SCTLR[] definition
+            if r.name == "aarch64/functions/sysregisters/SCTLR":
+                r.code = r.code.replace("bits(32) r;", "bits(64) r;")
+            # workaround: patch AArch64.CheckUnallocatedSystemAccess
+            if r.name == "aarch64/functions/system/AArch64.CheckUnallocatedSystemAccess":
+                r.code = r.code.replace("bits(2) op0,", "bits(2) el, bits(2) op0,")
+            # workaround: patch AArch64.CheckSystemAccess
+            if r.name == "aarch64/functions/system/AArch64.CheckSystemAccess":
+                r.code = r.code.replace("AArch64.CheckSVESystemRegisterTraps(op0, op1, crn, crm, op2);",
+                                        "AArch64.CheckSVESystemRegisterTraps(op0, op1, crn, crm, op2, read);")
+
             # workaround: collect type definitions
             for m in re.finditer('''(?m)^(enumeration|type)\s+(\S+)''',r.code):
                 r.defs.add(m.group(2))
@@ -268,6 +279,9 @@ def readInstruction(xml,names):
             nm  = b.attrib.get('name', '_')
             ignore = 'psbits' in b.attrib and b.attrib['psbits'] == 'x'*wd
             consts = ''.join([ 'x'*int(c.attrib.get('colspan','1')) if c.text is None or ignore else c.text for c in b.findall('c') ])
+
+            # workaround: add explicit slicing to LDM/STM register_list fields
+            if nm == "register_list" and wd == 13: nm = nm + "<12:0>"
 
             # if adjacent entries are two parts of same field, join them
             # e.g., imm8<7:1> and imm8<0> or opcode[5:2] and opcode[1:0]
