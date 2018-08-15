@@ -241,7 +241,7 @@ def readNotice(xml):
     notice = ['/'*72, "// Proprietary Notice"]
     for p in xml.iter('para'):
         para = ET.tostring(p, method='text').decode().rstrip()
-        para = para.replace("&#8217;", '"')
+        para = para.replace("&#8217;", "'")
         para = para.replace("&#8220;", '"')
         para = para.replace("&#8221;", '"')
         para = para.replace("&#8482;", '(TM)')
