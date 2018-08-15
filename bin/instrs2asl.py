@@ -10,6 +10,7 @@ import glob
 import json
 import os
 import re
+import string
 import sys
 import xml.etree.cElementTree as ET
 from collections import defaultdict
@@ -119,6 +120,19 @@ class Instruction:
             dec.emit(file, dec_tag)
             index.append('Decode: '+dec_tag+'@'+enc_tag)
         emit(file, idx_tag, "\n".join(index))
+
+    def emit_sail_ast(self, previous_clauses, file):
+        for enc in self.encs:
+            enc_name, enc_iset, enc_fields, enc_asl = enc
+            fields = [(nm, hi - lo + 1) for (hi, lo, nm, split, consts) in enc_fields if nm != '_']
+            typed_fields = ['/* {} : */ bits({})'.format(name, length)  for (name, length) in fields]
+            if len(typed_fields) < 1:
+                clause = 'union clause ast = ' + sanitize(enc_name) + ' : unit'
+            else:
+                clause = 'union clause ast = ' + sanitize(enc_name) + ' : (' + ', '.join(typed_fields) + ')'
+            if clause not in previous_clauses:
+                print(clause, file=file)
+                previous_clauses.add(clause)
 
     def __str__(self):
         encs = "["+ ", ".join([inm for (inm,_,_,_) in self.encs]) +"]"
@@ -257,6 +271,15 @@ def readNotice(xml):
     notice.append('/'*72)
     return '\n'.join(notice)
 
+def sanitize(name):
+    new_name = ""
+    for c in name:
+        if c not in string.ascii_letters and c not in string.digits:
+            new_name += "_"
+        else:
+            new_name += c
+    return new_name
+
 def readInstruction(xml,names):
     execs = xml.findall(".//pstext[@section='Execute']/..")
     posts = xml.findall(".//pstext[@section='Postdecode']/..")
@@ -290,7 +313,9 @@ def readInstruction(xml,names):
             # normalise T16 encoding bit numbers
             if isT16: hi = hi-16
             lo = hi - wd + 1
-            nm  = b.attrib.get('name', '_')
+            nm  = b.attrib.get('name', '_') if b.attrib.get('usename', '0') == '1' else '_'
+            # workaround for Sail
+            if nm == 'type': nm = 'typ'
             ignore = 'psbits' in b.attrib and b.attrib['psbits'] == 'x'*wd
             consts = ''.join([ 'x'*int(c.attrib.get('colspan','1')) if c.text is None or ignore else c.text for c in b.findall('c') ])
 
@@ -397,6 +422,8 @@ def main():
                         metavar='FILE', default='arch.tag')
     parser.add_argument('--asl',  help='Output asl file for support code',
                         metavar='FILE', default='arch.asl')
+    parser.add_argument('--sail_asts', help='Output Sail file for AST clauses',
+                        metavar='FILE', default=None)
     parser.add_argument('dir', metavar='<dir>',  nargs='+',
                         help='input directories')
     parser.add_argument('--filter',  help='Optional input json file to filter definitions',
@@ -556,6 +583,16 @@ def main():
         print('/'*72, file=outf)
         print('// End', file=outf)
         print('/'*72, file=outf)
+
+    if args.sail_asts is not None:
+        if args.verbose > 0: print("Writing Sail ast clauses to", args.sail_asts)
+        with open(args.sail_asts, "w") as outf:
+            print(notice, file=outf, end='\n\n')
+            print('scattered union ast', file=outf, end='\n\n')
+            previous_clauses = set()
+            for i in instrs:
+                i.emit_sail_ast(previous_clauses, outf)
+            print('\nend ast', file=outf)
 
     return
 
