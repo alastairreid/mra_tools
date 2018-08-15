@@ -5,7 +5,12 @@ Unpack ARM instruction XML files extracting the encoding information
 and ASL code within it.
 '''
 
-import argparse, glob, json, os, re, sys
+import argparse
+import glob
+import json
+import os
+import re
+import sys
 import xml.etree.cElementTree as ET
 from collections import defaultdict
 
