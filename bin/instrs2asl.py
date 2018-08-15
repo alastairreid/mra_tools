@@ -9,6 +9,9 @@ import argparse, glob, json, os, re, sys
 import xml.etree.cElementTree as ET
 from collections import defaultdict
 
+include_regex = None
+exclude_regex = None
+
 ########################################################################
 # Tag file support
 ########################################################################
@@ -262,6 +265,12 @@ def readInstruction(xml,names):
     exec.patchDependencies(names)
     if post: post.patchDependencies(names) 
 
+    include_matches = include_regex is None or include_regex.search(exec.name)
+    exclude_matches = exclude_regex is not None and exclude_regex.search(exec.name)
+    if not include_matches or exclude_matches:
+        return None
+
+
     # for each encoding, read instructions encoding, matching decode ASL and index
     encs = []
     for iclass in xml.findall('.//classes/iclass'):
@@ -371,6 +380,8 @@ def checkCanaries(callers, isChunk, roots, f, path):
 
 def main():
     global alt_slice_syntax
+    global include_regex
+    global exclude_regex
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--verbose', '-v', help='Use verbose output',
@@ -387,9 +398,17 @@ def main():
                         metavar='FILE', default=[], nargs='*')
     parser.add_argument('--arch', help='Optional list of architecture states to extract',
                         choices=["AArch32", "AArch64"], default=[], action='append')
+    parser.add_argument('--include', help='Regex to select instructions by name',
+                        metavar='REGEX', default=None)
+    parser.add_argument('--exclude', help='Regex to exclude instructions by name',
+                        metavar='REGEX', default=None)
     args = parser.parse_args()
 
     alt_slice_syntax = args.altslicesyntax
+    if args.include is not None:
+        include_regex = re.compile(args.include)
+    if args.exclude is not None:
+        exclude_regex = re.compile(args.exclude)
 
     encodings = []
     if "AArch32" in args.arch: encodings.extend(["T16", "T32", "A32"])
