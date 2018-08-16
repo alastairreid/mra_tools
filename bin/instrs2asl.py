@@ -7,7 +7,9 @@ and ASL code within it.
 
 import argparse
 import glob
+import itertools
 import json
+import math
 import os
 import re
 import string
@@ -15,6 +17,10 @@ import sys
 import xml.etree.cElementTree as ET
 from collections import defaultdict
 from itertools import takewhile
+
+import asm
+import explanations
+from explanations import sanitize
 
 include_regex = None
 exclude_regex = None
@@ -107,23 +113,24 @@ def deslash(nm):
 class Instruction:
     '''Representation of Instructions'''
 
-    def __init__(self, name, encs, post, conditional, exec):
+    def __init__(self, name, encs, post, conditional, exec, exps):
         self.name = name
         self.encs = encs
         self.post = post
         self.conditional = conditional
         self.exec = exec
+        self.explanations = exps
 
     def emit_asl_syntax(self, ofile):
         print("__instruction "+ deslash(self.name), file=ofile)
 
-        for (inm,insn_set,fields,dec) in self.encs:
+        for (inm,insn_set,fields,dec,asm_encodings) in self.encs:
             unpreds = []
             pattern = "" # todo: assumes that fields are sorted in order
 
             print("    __encoding "+ deslash(inm), file=ofile)
             print("        __instruction_set "+ insn_set, file=ofile)
-            for (hi, lo, nm, split, consts) in fields:
+            for (hi, lo, nm, split, consts, _) in fields:
                 # assert(not split) todo
                 wd = (hi - lo) + 1
 
@@ -176,12 +183,12 @@ class Instruction:
         if self.post:
             self.post.emit(file, post_tag)
             index.append('Postdecode: '+post_tag)
-        for (inm,insn_set,fields,dec) in self.encs:
+        for (inm,insn_set,fields,dec,asms) in self.encs:
             dec_tag  = inm + ':decode'
             enc_tag  = inm + ':diagram'
             enc = [insn_set]
             enc.extend([str(hi)+":"+str(lo)+" "+nm+" "+consts
-                        for (hi,lo,nm,_,consts) in fields ])
+                        for (hi,lo,nm,_,consts,_) in fields ])
             emit(file, enc_tag, "\n".join(enc))
             dec.emit(file, dec_tag)
             index.append('Decode: '+dec_tag+'@'+enc_tag)
@@ -189,8 +196,8 @@ class Instruction:
 
     def emit_sail_ast(self, previous_clauses, file):
         for enc in self.encs:
-            enc_name, enc_iset, enc_fields, enc_asl = enc
-            fields = [(nm, hi - lo + 1) for (hi, lo, nm, split, consts) in enc_fields if nm != '_']
+            enc_name, enc_iset, enc_fields, enc_asl, enc_asm = enc
+            fields = [(nm, hi - lo + 1) for (hi, lo, nm, split, consts, actual_consts) in enc_fields if nm != '_']
             typed_fields = ['/* {} : */ bits({})'.format(name, length)  for (name, length) in fields]
             if len(typed_fields) < 1:
                 clause = 'union clause ast = ' + sanitize(enc_name) + ' : unit'
@@ -200,9 +207,19 @@ class Instruction:
                 print(clause, file=file)
                 previous_clauses.add(clause)
 
+    def emit_sail_explanations(self, previous_explanations, file):
+        for name, d in self.explanations.items():
+            explanations.emit_explanation(file, previous_explanations, name, d)
+
+    def emit_sail_asm(self, file):
+        for enc in self.encs:
+            asm.emit_sail_asm(file, enc)
+
     def __str__(self):
         encs = "["+ ", ".join([inm for (inm,_,_,_) in self.encs]) +"]"
         return "Instruction{" + ", ".join([encs, (self.post.name if self.post else "-"), self.exec.name])+", "+conditional+"}"
+
+
 
 
 ########################################################################
@@ -521,15 +538,6 @@ def readNotice(xml):
     notice.append('/'*72)
     return '\n'.join(notice)
 
-def sanitize(name):
-    new_name = ""
-    for c in name:
-        if c not in string.ascii_letters and c not in string.digits:
-            new_name += "_"
-        else:
-            new_name += c
-    return new_name
-
 # remove one level of indentation from code
 def indent(code):
     return [ "    " + l for l in code ]
@@ -627,8 +635,9 @@ def readInstruction(xml,names,sailhack):
     include_matches = include_regex is None or include_regex.search(exec.name)
     exclude_matches = exclude_regex is not None and exclude_regex.search(exec.name)
     if not include_matches or exclude_matches:
-        return None
+        return (None, None)
 
+    exps = explanations.read_asm_explanations(exec.name, xml)
 
     # for each encoding, read instructions encoding, matching decode ASL and index
     encs = []
@@ -648,7 +657,10 @@ def readInstruction(xml,names,sailhack):
             # workaround for Sail
             if sailhack and nm == 'type': nm = 'typ'
             ignore = 'psbits' in b.attrib and b.attrib['psbits'] == 'x'*wd
-            consts = ''.join([ 'x'*int(c.attrib.get('colspan','1')) if c.text is None or ignore else c.text for c in b.findall('c') ])
+            actual_consts = ''.join([ 'x'*int(c.attrib.get('colspan','1')) if c.text is None else c.text for c in b.findall('c') ])
+            consts = actual_consts
+            if ignore:
+                consts = 'x' * wd
 
             # workaround: add explicit slicing to LDM/STM register_list fields
             if nm == "register_list" and wd == 13: nm = nm + "<12:0>"
@@ -670,26 +682,29 @@ def readInstruction(xml,names,sailhack):
             # discard != information because it is better obtained elsewhere in spec
             if consts.startswith('!='): consts = 'x'*wd
 
-            fields.append((hi,lo,nm,split,consts))
+            fields.append((hi,lo,nm,split,consts,actual_consts))
 
         # workaround: avoid use of overloaded field names
         fields2 = []
-        for (hi, lo, nm, split, consts) in fields:
+        for (hi, lo, nm, split, consts, actual_consts) in fields:
             if (nm in ["SP", "mask", "opcode"]
                and 'x' not in consts
                and exec.name not in ["aarch64/float/convert/fix", "aarch64/float/convert/int"]):
                 # workaround: avoid use of overloaded field name
                 nm = '_'
-            fields2.append((hi,lo,nm,split,consts))
+            fields2.append((hi,lo,nm,split,consts, actual_consts))
+
+        asm_types = {nm: 'bits({})'.format(hi - lo + 1) for hi,lo,nm,_,_,_ in fields if nm != '_'}
+        asm_encodings = [asm.read_asm_encoding(sanitize(exec.name), exps, asm_types, e) for e in iclass.findall('.//encoding/asmtemplate/..')]
 
         dec_asl = readASL(iclass.find('ps_section/ps'))
         if decode: dec_asl.code = decode +"\n"+ dec_asl.code
         dec_asl.patchDependencies(names)
 
         name = dec_asl.name if insn_set in ["T16","T32","A32"] else encoding.attrib['psname']
-        encs.append((name, insn_set, fields2, dec_asl))
+        encs.append((name, insn_set, fields2, dec_asl, asm_encodings))
 
-    return (Instruction(exec.name, encs, post, conditional, exec), top)
+    return (Instruction(exec.name, encs, post, conditional, exec, exps), top)
 
 ########################################################################
 # Reachability analysis
@@ -757,6 +772,8 @@ def main():
                         action='store_true', default=False)
     parser.add_argument('--output', '-o', help='Basename for output files',
                         metavar='FILE', default='arch')
+    parser.add_argument('--sail_asm', help='Output Sail file for assembly mappings',
+                        metavar='FILE', default=None)
     parser.add_argument('dir', metavar='<dir>',  nargs='+',
                         help='input directories')
     parser.add_argument('--filter',  help='Optional input json file to filter definitions',
@@ -887,7 +904,7 @@ def main():
         if args.verbose > 0: print("Discarding definitions unreachable from",
                                ", ".join(encodings), " instructions")
         for i in instrs:
-            for (_,_,_,dec) in i.encs: roots |= dec.deps
+            for (_,_,_,dec,_) in i.encs: roots |= dec.deps
             if i.post: roots |= i.post.deps
             roots |= i.exec.deps
     (live, _) = reachable(deps, roots)
@@ -954,6 +971,18 @@ def main():
             for i in instrs:
                 i.emit_sail_ast(previous_clauses, outf)
             print('\nend ast', file=outf)
+
+    if args.sail_asm is not None:
+        if args.verbose > 0: print("Writing Sail assembly clauses to", args.sail_asm)
+        with open(args.sail_asm, "w") as outf:
+            print(notice, file=outf, end='\n\n')
+            print('val assembly : ast <-> string', file=outf)
+            print('scattered mapping assembly', file=outf, end='\n\n')
+            previous_explanations = set()
+            for i in instrs:
+                i.emit_sail_explanations(previous_explanations, outf)
+                i.emit_sail_asm(outf)
+            print('\nend assembly', file=outf)
 
     return
 
