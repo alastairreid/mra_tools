@@ -336,12 +336,16 @@ mapping bits4_str : bits(4) <-> string = {
   0b0000 <-> "0"
 }
 
-mapping asm_sysreg : bits(15) <-> string = {
-// TODO FIXME
-  0b000000000000000 <-> "something",
-  0b0 : bits(1) @ op1 : bits(3) @ CRn : bits(4) @ CRm : bits(4) @ op2 : bits(3) <-> "S2_" ^ bits3_str(op1) ^ "_C" ^ bits4_str(CRn) ^ "_C" ^ bits4_str(CRm) ^ "_" ^ bits3_str(op2),
-  0b1 : bits(1) @ op1 : bits(3) @ CRn : bits(4) @ CRm : bits(4) @ op2 : bits(3) <-> "S3_" ^ bits3_str(op1) ^ "_C" ^ bits4_str(CRn) ^ "_C" ^ bits4_str(CRm) ^ "_" ^ bits3_str(op2)
-}
+val asm_sysreg : bits(15) <-> string
+
+scattered mapping asm_sysreg
+
+$include "asm_sysregs.sail"
+
+mapping clause asm_sysreg = 0b0 : bits(1) @ op1 : bits(3) @ CRn : bits(4) @ CRm : bits(4) @ op2 : bits(3) <-> "S2_" ^ bits3_str(op1) ^ "_C" ^ bits4_str(CRn) ^ "_C" ^ bits4_str(CRm) ^ "_" ^ bits3_str(op2)
+mapping clause asm_sysreg = 0b1 : bits(1) @ op1 : bits(3) @ CRn : bits(4) @ CRm : bits(4) @ op2 : bits(3) <-> "S3_" ^ bits3_str(op1) ^ "_C" ^ bits4_str(CRn) ^ "_C" ^ bits4_str(CRm) ^ "_" ^ bits3_str(op2)
+
+end asm_sysreg
 
 
 mapping asm_condition : bits(4) <-> string = {
