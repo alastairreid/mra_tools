@@ -38,6 +38,9 @@ Generates:
   (This file uses an alternative syntax for bitslices that is easier to parse.
   Remove the --altslicesyntax flag from the Makefile to get the original ASL.)
 - arch.tag: all the instruction encodings and decode/execute ASL
+- arch_instrs.tag: all the instruction encodings and decode/execute ASL
+  (alternate format)
+- arch_decode.tag: instruction decode trees in ASL
 - regs.asl: type of each system register
 
 You can also extract various subsets of the full architecture specification.
@@ -53,9 +56,10 @@ The subset selected may not contain all the instructions you would want --- see
 ## Help
 
     $ bin/instrs2asl.py  -h
-    usage: instrs2asl.py [-h] [--verbose] [--tag FILE] [--asl FILE]
-			 [--arch {AArch32,AArch64}]
-			 <dir> [<dir> ...]
+    usage: instrs2asl.py [-h] [--verbose] [--altslicesyntax] [--demangle]
+                         [--output FILE] [--filter [FILE [FILE ...]]]
+                         [--arch {AArch32,AArch64}]
+                         <dir> [<dir> ...]
 
     Unpack ARM instruction XML files extracting the encoding information and ASL
     code within it.
@@ -66,10 +70,14 @@ The subset selected may not contain all the instructions you would want --- see
     optional arguments:
       -h, --help            show this help message and exit
       --verbose, -v         Use verbose output
-      --tag FILE            Output tag file for instructions
-      --asl FILE            Output asl file for support code
+      --altslicesyntax      Convert to alternative slice syntax
+      --demangle            Demangle instruction ASL
+      --output FILE, -o FILE
+                            Basename for output files
+      --filter [FILE [FILE ...]]
+                            Optional input json file to filter definitions
       --arch {AArch32,AArch64}
-			    Optional list of architecture states to extract
+                            Optional list of architecture states to extract
 
 
 ## Subsetting

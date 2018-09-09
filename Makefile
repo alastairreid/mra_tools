@@ -14,7 +14,7 @@ FILTER =
 regs.asl: ${SYSREG}
 	bin/reg2asl.py $< -o $@
 
-arch.asl arch.tag: ${A32} ${A64}
+arch.asl arch.tag arch_instrs.asl arch_decode.asl: ${A32} ${A64}
 	bin/instrs2asl.py --altslicesyntax $^ ${FILTER}
 
 src/test_parser.byte:
@@ -40,7 +40,7 @@ all :: regs.asl
 all :: arch.asl
 
 clean ::
-	$(RM) regs.asl arch.asl arch.tag
+	$(RM) regs.asl arch.asl arch.tag arch_instrs.asl arch_decode.asl
 
 
 clean ::

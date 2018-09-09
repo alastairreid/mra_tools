@@ -14,6 +14,7 @@ import string
 import sys
 import xml.etree.cElementTree as ET
 from collections import defaultdict
+from itertools import takewhile
 
 include_regex = None
 exclude_regex = None
@@ -47,6 +48,10 @@ class ASL:
 
     def emit(self, file, tag):
         emit(file, tag, self.code)
+
+    def put(self, ofile, indent):
+        for l in self.code.splitlines():
+            print(" "*indent + l, file=ofile)
 
     def __str__(self):
         return "ASL{"+", ".join([self.name, str(self.defs), str(self.deps)])+"}"
@@ -90,17 +95,78 @@ class ASL:
         # print("  "+"\n  ".join(lines))
         return ASL(self.name, '\n'.join(lines), self.defs, set())
 
+# Test whether instruction encoding has a field with given name
+def hasField(fields, nm):
+    return any(f == nm for (_, _, f, _, _) in fields)
+
+# Turn instruction and encoding names into identifiers
+# e.g., "aarch32/UHSAX/A1_A" becomes "aarch32_UHSAX_A1_A"
+def deslash(nm):
+    return nm.replace("/instrs","").replace("/", "_").replace("-","_")
 
 class Instruction:
     '''Representation of Instructions'''
 
-    def __init__(self, name, encs, post, exec):
+    def __init__(self, name, encs, post, conditional, exec):
         self.name = name
         self.encs = encs
         self.post = post
+        self.conditional = conditional
         self.exec = exec
 
-    def emit(self, file):
+    def emit_asl_syntax(self, ofile):
+        print("__instruction "+ deslash(self.name), file=ofile)
+
+        for (inm,insn_set,fields,dec) in self.encs:
+            unpreds = []
+            pattern = "" # todo: assumes that fields are sorted in order
+
+            print("    __encoding "+ deslash(inm), file=ofile)
+            print("        __instruction_set "+ insn_set, file=ofile)
+            for (hi, lo, nm, split, consts) in fields:
+                # assert(not split) todo
+                wd = (hi - lo) + 1
+
+                # convert all the 'should be' bits to 'unpredictable_unless'
+                cs = ""
+                i  = hi
+                while consts != "":
+                    if consts.startswith("(1)") or consts.startswith("(0)"):
+                        unpreds.append((i, consts[1]))
+                        cs = cs + "x"
+                        consts = consts[3:]
+                    elif consts[0] in "01x":
+                        cs = cs + consts[0]
+                        consts = consts[1:]
+                    else:
+                        print("Malformed field "+consts)
+                        assert False
+                    i = i - 1
+                consts = cs
+                assert len(consts) == wd
+                pattern = pattern + consts
+                if nm != "_":
+                    print("        __field "+nm+" "+str(lo)+" +: "+str(wd), file=ofile)
+            pattern = [ pattern[i:i+8] for i in range(0, len(pattern), 8) ]
+            print("        __opcode '" + " ".join(pattern) + "'", file=ofile)
+            guard = "cond != '1111'" if  insn_set == "A32" and hasField(fields, "cond") else "TRUE";
+            print("        __guard "+guard, file=ofile)
+            for (i, v) in unpreds:
+                print("        __unpredictable_unless "+str(i)+" == '"+v+"'", file=ofile)
+
+            print("        __decode", file=ofile)
+            dec.put(ofile, 12)
+            print(file=ofile)
+        if self.post:
+            print("    __postdecode", file=ofile)
+            self.post.put(ofile, 8)
+        if self.conditional:
+            print("    __execute __conditional", file=ofile)
+        else:
+            print("    __execute", file=ofile)
+        self.exec.put(ofile, 8)
+
+    def emit_tag_syntax(self, file):
         index = [] # index of sections of this instruction
         exec_tag = self.name+':execute'
         post_tag = self.name+':postdecode'
@@ -136,7 +202,7 @@ class Instruction:
 
     def __str__(self):
         encs = "["+ ", ".join([inm for (inm,_,_,_) in self.encs]) +"]"
-        return "Instruction{" + ", ".join([encs, (self.post.name if self.post else "-"), self.exec.name])+"}"
+        return "Instruction{" + ", ".join([encs, (self.post.name if self.post else "-"), self.exec.name])+", "+conditional+"}"
 
 
 ########################################################################
@@ -144,6 +210,7 @@ class Instruction:
 ########################################################################
 
 alt_slice_syntax = False
+demangle_instr = False
 
 '''
 Read pseudocode to extract ASL.
@@ -191,6 +258,189 @@ def patchSlices(x):
     x = re.sub("<("+reParts+")>", r'[\1]',x)
     return x
 
+'''
+Read encoding diagrams header found in encoding index XML
+'''
+def readDiagram(reg):
+    size = reg.attrib['form']
+
+    fields = []
+    for b in reg.findall('box'):
+        wd = int(b.attrib.get('width','1'))
+        hi = int(b.attrib['hibit'])
+        # normalise T16 reg bit numbers
+        lo = hi - wd + 1
+        fields.append((lo, wd))
+    return (size, fields)
+
+def squote(s):
+    return "'"+s+"'"
+
+'''
+Convert a field in a decode table such as "111" or "!= 111" or None
+to a legal ASL pattern
+'''
+def fieldToPattern(f):
+    if f:
+        return "!"+squote(f[3:]) if f.startswith('!= ') else squote(f)
+    else:
+        return "_"
+
+'''
+Read encoding diagrams entries found in encoding index XML
+'''
+def readDecode(d, columns):
+    values = {}
+    for b in d.findall('box'):
+        wd = int(b.attrib.get('width','1'))
+        hi = int(b.attrib['hibit'])
+        lo = hi - wd + 1
+        values[lo] = fieldToPattern(b.find('c').text)
+    return [ values.get(lo, "_") for (lo, _) in columns ]
+
+def readIClass(c):
+    label = c.attrib['iclass']
+    allocated = c.attrib.get("unallocated", "0") == "0"
+    predictable = c.attrib.get("unpredictable", "0") == "0"
+    assert allocated or predictable
+    # print("Reading iclass "+label+" "+str(allocated)+" "+str(unpredictable))
+    return (label, allocated, predictable)
+
+'''
+'''
+def readGroup(label, g):
+    # print("Reading group "+label)
+    diagram = readDiagram(g.find("regdiagram"))
+    # print("Diagram "+str(diagram))
+
+    children = []
+
+    for n in g.findall('node'):
+        dec = readDecode(n.find('decode'), diagram[1])
+        # print("Decode "+str(dec), diagram[1])
+        if 'iclass' in n.attrib:
+            i = readIClass(n)
+            children.append((dec, False, i))
+        elif 'groupname' in n.attrib:
+            nm = n.attrib['groupname']
+            g = readGroup(nm, n)
+            children.append((dec, True, g))
+        else:
+            assert False
+    return (label, diagram, children)
+
+'''
+'''
+def readInstrName(dir, filename, encname):
+    filename = dir+"/"+filename
+    xml = ET.parse(filename)
+    for ic in xml.findall(".//iclass"):
+        decode = ic.find("regdiagram").attrib['psname']
+        for enc in ic.findall("encoding"):
+            if not encname or enc.attrib['name'] == encname:
+                decode = decode.replace(".txt","")
+                decode = decode.replace("/instrs","")
+                decode = decode.replace("-","_")
+                decode = decode.replace("/","_")
+                return decode
+    assert False
+
+'''
+'''
+def readITables(dir, root):
+    classes = {}
+    funcgroup = None # hack: structure of XML is not quite hierarchial
+    for child in root.iter():
+        if child.tag == 'funcgroupheader':
+            funcgroup = child.attrib['id']
+            # print("Functional Group "+funcgroup)
+        elif child.tag == 'iclass_sect':
+            iclass_id = child.attrib['id']
+            fields = [ (b.attrib['name'], int(b.attrib['hibit']), int(b.attrib.get('width', 1))) for b in child.findall('regdiagram/box') if 'name' in b.attrib ]
+            # print("Group "+funcgroup +" "+ iclass_id +' '+str(fields))
+            tables = []
+            for i in child.findall('instructiontable'):
+                iclass = i.attrib['iclass']
+                headers = [ r.text for r in i.findall('thead/tr/th') if r.attrib['class'] == 'bitfields' ]
+                # print("ITable "+funcgroup +" "+ iclass +" "+str(headers))
+                rows = []
+                for r in i.findall('tbody/tr'):
+                    patterns = [ fieldToPattern(d.text) for d in r.findall('td') if d.attrib['class'] == 'bitfield' ]
+                    undef    = r.get('undef', '0') == '1'
+                    unpred   = r.get('unpred', '0') == '1'
+                    nop      = r.get('reserved_nop_hint', '0') == '1'
+                    encname  = r.get('encname')
+                    nm       = "_" if undef or unpred or nop else readInstrName(dir, r.attrib['iformfile'], encname)
+                    rows.append((patterns, nm, encname, undef, unpred, nop))
+                tables.append((iclass, headers, rows))
+                # print(iclass, fields, headers, rows)
+            assert len(tables) == 1
+            # discard fields that are not used to select instruction
+            # fields = [ (nm, hi, wd) for (nm, hi, wd) in fields if nm in headers ]
+            classes[iclass_id] = (fields, tables[0])
+    return classes
+
+'''
+'''
+def readDecodeFile(dir, file):
+    print("Reading decoder "+file)
+    root = ET.parse(file)
+
+    iset = root.getroot().attrib['instructionset']
+    groups = readGroup(iset, root.find('hierarchy'))
+
+    classes = readITables(dir, root)
+
+    return (groups, classes)
+
+def ppslice(f):
+    (lo, wd) = f
+    return (str(lo) +" +: "+ str(wd))
+
+def printITable(ofile, level, c):
+    (fields, (ic, hdr, rows)) = c
+    for (fnm, hi, wd) in fields:
+        print("    "*level + "__field "+ fnm +" "+str(hi-wd+1) +" +: "+str(wd), file=ofile)
+    print("    "*level +"case ("+ ", ".join(hdr) +") of", file=ofile)
+    for (pats, nm, encname, undef, unpred, nop) in rows:
+        nm = "__encoding "+nm
+        if encname: nm = nm + " // " +encname
+        if undef: nm = "__UNALLOCATED"
+        if unpred: nm = "__UNPREDICTABLE"
+        if nop: nm = "__NOP"
+        print("    "*(level+1) +"when ("+ ", ".join(pats) +") => "+ nm, file=ofile)
+    return
+
+def printDiagram(ofile, level, reg):
+    (size, fields) = reg
+    print("    "*level +"case ("+ ", ".join(map(ppslice, fields)) +") of", file=ofile)
+    return
+
+def printGroup(ofile, classes, level, root):
+    (label, diagram, children) = root
+    print("    "*level + "// "+label, file=ofile)
+    printDiagram(ofile, level, diagram)
+    for (dec, isGroup, c) in children:
+        if isGroup:
+            print("    "*(level+1) +"when ("+ ", ".join(dec) +") =>", file=ofile)
+            printGroup(ofile, classes, level+2, c)
+        else:
+            (label, allocated, predictable) = c
+            tag = "// "+label
+            if allocated and predictable:
+                (fields, (ic, hdr, rows)) = classes[label]
+                print("    "*(level+1) +"when ("+ ", ".join(dec) +") => " +tag, file=ofile)
+                printITable(ofile, level+2, classes[label])
+            else:
+                if not allocated: tag = "__UNPREDICTABLE"
+                if not predictable: tag = "__UNALLOCATED"
+                print("    "*(level+1) +"when ("+ ", ".join(dec) +") => " +tag, file=ofile)
+
+    return
+
+def printDecodeTree(ofile, groups, classes):
+    print("__decode", groups[0], file=ofile)
+    printGroup(ofile, classes, 1, groups)
 
 '''
 Read shared pseudocode files to extract ASL.
@@ -280,18 +530,99 @@ def sanitize(name):
             new_name += c
     return new_name
 
+# remove one level of indentation from code
+def indent(code):
+    return [ "    " + l for l in code ]
+
+# remove one level of indentation from code
+def unindent(code):
+    cs = []
+    for l in code:
+        if l != "" and l[0:4] != "    ":
+            print("Malformed conditional code '" + l[0:4] +"'")
+            assert False
+        cs.append(l[4:])
+    return cs
+
+# Execute ASL code often has a header like this:
+#
+#     if ConditionPassed() then
+#         EncodingSpecificOperations();
+#
+# that we need to transform into a more usable form.
+# Other patterns found are:
+# - declaring an enumeration before the instruction
+# - inserting another line of code between the first and second lines.
+#   eg "if PSTATE.EL == EL2 then UNPREDICTABLE;"
+# - wrapping the entire instruction in
+#    "if code[0].startswith("if CurrentInstrSet() == InstrSet_A32 then"):
+#
+# Return value consists of (top, cond, dec, exec):
+# - additional top level declarations (of enumerations)
+# - boolean: is the instruction conditional?
+# - additional decode logic (to be added to start of decode ASL)
+# - demangled execute logic
+def demangleExecuteASL(code):
+    tops = None
+    conditional = False
+    decode = None
+    if code[0].startswith("enumeration ") and code[1] == "":
+        tops = code[0]
+        code = code[2:]
+    if code[0].startswith("if CurrentInstrSet() == InstrSet_A32 then"):
+        first = code[0]
+        code = code[1:]
+        mid = code.index("else")
+        code1 = unindent(code[:mid])
+        code2= unindent(code[mid+1:])
+        (tops1, conditional1, decode1, code1) = demangleExecuteASL(code1)
+        (tops2, conditional2, decode2, code2) = demangleExecuteASL(code2)
+        assert tops1 == None and tops2 == None
+        assert conditional1 == conditional2
+        code = [first] + indent(code1) + ["else"] + indent(code2)
+        ([], conditional1, "\n".join([decode1 or "", decode2 or ""]), code)
+
+    if code[0] == "if ConditionPassed() then":
+        conditional = True
+        code = code[1:] # delete first line
+        code = unindent(code)
+    if code[0] == "bits(128) result;":
+        tmp = code[0]
+        code[0] = code[1]
+        code[1] = tmp
+    elif len(code) >= 2 and code[1] == "EncodingSpecificOperations();":
+        decode = code[0]
+        code = code[1:]
+    if code[0].startswith("EncodingSpecificOperations();"):
+        rest = code[0][29:].strip()
+        if rest == "":
+            code = code[1:]
+        else:
+            code[0] = rest
+    return (tops, conditional, decode, code)
+
 def readInstruction(xml,names):
     execs = xml.findall(".//pstext[@section='Execute']/..")
     posts = xml.findall(".//pstext[@section='Postdecode']/..")
     assert(len(posts) <= 1)
     assert(len(execs) <= 1)
-    if not execs: return None # discard aliases
+    if not execs: return (None, None) # discard aliases
 
     exec = readASL(execs[0])
     post = readASL(posts[0]) if posts else None
 
+    if demangle_instr:
+        # demangle execute code
+        code = exec.code.splitlines()
+        (top, conditional, decode, execute) = demangleExecuteASL(code)
+        exec.code = '\n'.join(execute)
+    else:
+        top = None
+        conditional = False
+        decode = None
+
     exec.patchDependencies(names)
-    if post: post.patchDependencies(names) 
+    if post: post.patchDependencies(names)
 
     include_matches = include_regex is None or include_regex.search(exec.name)
     exclude_matches = exclude_regex is not None and exclude_regex.search(exec.name)
@@ -352,12 +683,13 @@ def readInstruction(xml,names):
             fields2.append((hi,lo,nm,split,consts))
 
         dec_asl = readASL(iclass.find('ps_section/ps'))
+        if decode: dec_asl.code = decode +"\n"+ dec_asl.code
         dec_asl.patchDependencies(names)
 
         name = dec_asl.name if insn_set in ["T16","T32","A32"] else encoding.attrib['psname']
         encs.append((name, insn_set, fields2, dec_asl))
 
-    return Instruction(exec.name, encs, post, exec)
+    return (Instruction(exec.name, encs, post, conditional, exec), top)
 
 ########################################################################
 # Reachability analysis
@@ -412,18 +744,19 @@ def main():
     global alt_slice_syntax
     global include_regex
     global exclude_regex
+    global demangle_instr
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--verbose', '-v', help='Use verbose output',
                         action = 'count', default=0)
     parser.add_argument('--altslicesyntax', help='Convert to alternative slice syntax',
                         action='store_true', default=False)
-    parser.add_argument('--tag',  help='Output tag file for instructions',
-                        metavar='FILE', default='arch.tag')
-    parser.add_argument('--asl',  help='Output asl file for support code',
-                        metavar='FILE', default='arch.asl')
     parser.add_argument('--sail_asts', help='Output Sail file for AST clauses',
                         metavar='FILE', default=None)
+    parser.add_argument('--demangle', help='Demangle instruction ASL',
+                        action='store_true', default=False)
+    parser.add_argument('--output', '-o', help='Basename for output files',
+                        metavar='FILE', default='arch')
     parser.add_argument('dir', metavar='<dir>',  nargs='+',
                         help='input directories')
     parser.add_argument('--filter',  help='Optional input json file to filter definitions',
@@ -441,6 +774,7 @@ def main():
         include_regex = re.compile(args.include)
     if args.exclude is not None:
         exclude_regex = re.compile(args.exclude)
+    demangle_instr   = args.demangle
 
     encodings = []
     if "AArch32" in args.arch: encodings.extend(["T16", "T32", "A32"])
@@ -463,13 +797,18 @@ def main():
     for a in shared.values():
         a.patchDependencies(chunks)
 
+    decoder_files = [ 'encodingindex.xml', 't32_encindex.xml', 'a32_encindex.xml' ]
+    decoders = [ readDecodeFile(d, f) for df in decoder_files for d in args.dir for f in glob.glob(os.path.join(d, df)) ]
+
     instrs = []
+    tops   = set()
     for d in args.dir:
         for inf in glob.glob(os.path.join(d, '*.xml')):
             name = re.search('.*/(\S+).xml',inf).group(1)
             if name == "onebigfile": continue
             xml = ET.parse(inf)
-            instr = readInstruction(xml,chunks)
+            (instr, top) = readInstruction(xml,chunks)
+            if top: tops.add(top)
             if instr is None: continue
 
             if encodings != []: # discard encodings from unwanted InsnSets
@@ -553,7 +892,7 @@ def main():
     (live, _) = reachable(deps, roots)
 
     # Check whether canaries can be reached from roots
-    if canaries != []:
+    if canaries != set():
         if args.verbose > 0: print("Checking unreachability of", ", ".join(canaries))
         rcg = defaultdict(set) # reverse callgraph
         for f, ds in deps.items():
@@ -569,16 +908,37 @@ def main():
 
     live_chunks = [ shared[x] for x in live if x in shared ]
 
-    if args.verbose > 0: print("Writing instruction encodings to", args.tag)
-    with open(args.tag, "w") as outf:
+    tagfile    = args.output + ".tag"
+    instrfile  = args.output + "_instrs.asl"
+    decodefile = args.output + "_decode.asl"
+    aslfile    = args.output + ".asl"
+
+    if args.verbose > 0: print("Writing instruction encodings to", tagfile)
+    with open(tagfile, "w") as outf:
         emit(outf, 'notice:asl', notice)
         for i in instrs:
-            i.emit(outf)
+            i.emit_tag_syntax(outf)
 
-    if args.verbose > 0: print("Writing ASL definitions to", args.asl)
-    with open(args.asl, "w") as outf:
+    if args.verbose > 0: print("Writing instructions to", instrfile)
+    with open(instrfile, "w") as outf:
         print(notice, file=outf)
         print(file=outf)
+        for i in instrs:
+            i.emit_asl_syntax(outf)
+            print(file=outf)
+        print('/'*72, file=outf)
+        print('// End', file=outf)
+        print('/'*72, file=outf)
+
+    if args.verbose > 0: print("Writing instruction decoder to", decodefile)
+    with open(decodefile, "w") as ofile:
+        for (groups, classes) in decoders: printDecodeTree(ofile, groups, classes)
+
+    if args.verbose > 0: print("Writing ASL definitions to", aslfile)
+    with open(aslfile, "w") as outf:
+        print(notice, file=outf)
+        print(file=outf)
+        print('\n'.join([ t for t in tops ]), file=outf)
         print('\n'.join([ x.code for x in live_chunks ]), file=outf)
         print('/'*72, file=outf)
         print('// End', file=outf)
