@@ -601,7 +601,7 @@ def demangleExecuteASL(code):
             code[0] = rest
     return (tops, conditional, decode, code)
 
-def readInstruction(xml,names):
+def readInstruction(xml,names,sailhack):
     execs = xml.findall(".//pstext[@section='Execute']/..")
     posts = xml.findall(".//pstext[@section='Postdecode']/..")
     assert(len(posts) <= 1)
@@ -646,7 +646,7 @@ def readInstruction(xml,names):
             lo = hi - wd + 1
             nm  = b.attrib.get('name', '_') if b.attrib.get('usename', '0') == '1' else '_'
             # workaround for Sail
-            if nm == 'type': nm = 'typ'
+            if sailhack and nm == 'type': nm = 'typ'
             ignore = 'psbits' in b.attrib and b.attrib['psbits'] == 'x'*wd
             consts = ''.join([ 'x'*int(c.attrib.get('colspan','1')) if c.text is None or ignore else c.text for c in b.findall('c') ])
 
@@ -800,6 +800,7 @@ def main():
     decoder_files = [ 'encodingindex.xml', 't32_encindex.xml', 'a32_encindex.xml' ]
     decoders = [ readDecodeFile(d, f) for df in decoder_files for d in args.dir for f in glob.glob(os.path.join(d, df)) ]
 
+    sailhack = args.sail_asts is not None
     instrs = []
     tops   = set()
     for d in args.dir:
@@ -807,7 +808,7 @@ def main():
             name = re.search('.*/(\S+).xml',inf).group(1)
             if name == "onebigfile": continue
             xml = ET.parse(inf)
-            (instr, top) = readInstruction(xml,chunks)
+            (instr, top) = readInstruction(xml,chunks,sailhack)
             if top: tops.add(top)
             if instr is None: continue
 
