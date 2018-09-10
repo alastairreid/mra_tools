@@ -609,6 +609,72 @@ def demangleExecuteASL(code):
             code[0] = rest
     return (tops, conditional, decode, code)
 
+
+def readEncoding(iclass, names, exec_name, exps, decode, sailhack):
+    encoding = iclass.find('regdiagram')
+    isT16 = encoding.attrib['form'] == "16"
+    insn_set = "T16" if isT16 else iclass.attrib['isa']
+
+    fields = []
+    for b in encoding.findall('box'):
+        wd = int(b.attrib.get('width','1'))
+        hi = int(b.attrib['hibit'])
+        # normalise T16 encoding bit numbers
+        if isT16: hi = hi-16
+        lo = hi - wd + 1
+        nm  = b.attrib.get('name', '_') if b.attrib.get('usename', '0') == '1' else '_'
+        # workaround for Sail
+        if sailhack and nm == 'type': nm = 'typ'
+        ignore = 'psbits' in b.attrib and b.attrib['psbits'] == 'x'*wd
+        actual_consts = ''.join([ 'x'*int(c.attrib.get('colspan','1')) if c.text is None else c.text for c in b.findall('c') ])
+        consts = actual_consts
+        if ignore:
+            consts = 'x' * wd
+
+        # workaround: add explicit slicing to LDM/STM register_list fields
+        if nm == "register_list" and wd == 13: nm = nm + "<12:0>"
+
+        # if adjacent entries are two parts of same field, join them
+        # e.g., imm8<7:1> and imm8<0> or opcode[5:2] and opcode[1:0]
+        m = re.match('^(\w+)[<[]', nm)
+        if m:
+            nm = m.group(1)
+            split = True
+            if fields[-1][3] and fields[-1][2] == nm:
+                (hi1,lo1,_,_,c1) = fields.pop()
+                assert(lo1 == hi+1) # must be adjacent
+                hi = hi1
+                consts = c1+consts
+        else:
+            split = False
+
+        # discard != information because it is better obtained elsewhere in spec
+        if consts.startswith('!='): consts = 'x'*wd
+
+        fields.append((hi,lo,nm,split,consts,actual_consts))
+
+    # workaround: avoid use of overloaded field names
+    fields2 = []
+    for (hi, lo, nm, split, consts, actual_consts) in fields:
+        if (nm in ["SP", "mask", "opcode"]
+           and 'x' not in consts
+           and exec_name not in ["aarch64/float/convert/fix", "aarch64/float/convert/int"]):
+            # workaround: avoid use of overloaded field name
+            nm = '_'
+        fields2.append((hi,lo,nm,split,consts, actual_consts))
+
+    asm_types = {nm: 'bits({})'.format(hi - lo + 1) for hi,lo,nm,_,_,_ in fields if nm != '_'}
+    asm_encodings = [asm.read_asm_encoding(sanitize(exec_name), exps, asm_types, e) for e in iclass.findall('.//encoding/asmtemplate/..')]
+
+    dec_asl = readASL(iclass.find('ps_section/ps'))
+    if decode: dec_asl.code = decode +"\n"+ dec_asl.code
+    dec_asl.patchDependencies(names)
+
+    name = dec_asl.name if insn_set in ["T16","T32","A32"] else encoding.attrib['psname']
+
+    return (name, insn_set, fields2, dec_asl, asm_encodings)
+
+
 def readInstruction(xml,names,sailhack):
     execs = xml.findall(".//pstext[@section='Execute']/..")
     posts = xml.findall(".//pstext[@section='Postdecode']/..")
@@ -642,67 +708,7 @@ def readInstruction(xml,names,sailhack):
     # for each encoding, read instructions encoding, matching decode ASL and index
     encs = []
     for iclass in xml.findall('.//classes/iclass'):
-        encoding = iclass.find('regdiagram')
-        isT16 = encoding.attrib['form'] == "16"
-        insn_set = "T16" if isT16 else iclass.attrib['isa']
-
-        fields = []
-        for b in encoding.findall('box'):
-            wd = int(b.attrib.get('width','1'))
-            hi = int(b.attrib['hibit'])
-            # normalise T16 encoding bit numbers
-            if isT16: hi = hi-16
-            lo = hi - wd + 1
-            nm  = b.attrib.get('name', '_') if b.attrib.get('usename', '0') == '1' else '_'
-            # workaround for Sail
-            if sailhack and nm == 'type': nm = 'typ'
-            ignore = 'psbits' in b.attrib and b.attrib['psbits'] == 'x'*wd
-            actual_consts = ''.join([ 'x'*int(c.attrib.get('colspan','1')) if c.text is None else c.text for c in b.findall('c') ])
-            consts = actual_consts
-            if ignore:
-                consts = 'x' * wd
-
-            # workaround: add explicit slicing to LDM/STM register_list fields
-            if nm == "register_list" and wd == 13: nm = nm + "<12:0>"
-
-            # if adjacent entries are two parts of same field, join them
-            # e.g., imm8<7:1> and imm8<0> or opcode[5:2] and opcode[1:0]
-            m = re.match('^(\w+)[<[]', nm)
-            if m:
-                nm = m.group(1)
-                split = True
-                if fields[-1][3] and fields[-1][2] == nm:
-                    (hi1,lo1,_,_,c1) = fields.pop()
-                    assert(lo1 == hi+1) # must be adjacent
-                    hi = hi1
-                    consts = c1+consts
-            else:
-                split = False
-
-            # discard != information because it is better obtained elsewhere in spec
-            if consts.startswith('!='): consts = 'x'*wd
-
-            fields.append((hi,lo,nm,split,consts,actual_consts))
-
-        # workaround: avoid use of overloaded field names
-        fields2 = []
-        for (hi, lo, nm, split, consts, actual_consts) in fields:
-            if (nm in ["SP", "mask", "opcode"]
-               and 'x' not in consts
-               and exec.name not in ["aarch64/float/convert/fix", "aarch64/float/convert/int"]):
-                # workaround: avoid use of overloaded field name
-                nm = '_'
-            fields2.append((hi,lo,nm,split,consts, actual_consts))
-
-        asm_types = {nm: 'bits({})'.format(hi - lo + 1) for hi,lo,nm,_,_,_ in fields if nm != '_'}
-        asm_encodings = [asm.read_asm_encoding(sanitize(exec.name), exps, asm_types, e) for e in iclass.findall('.//encoding/asmtemplate/..')]
-
-        dec_asl = readASL(iclass.find('ps_section/ps'))
-        if decode: dec_asl.code = decode +"\n"+ dec_asl.code
-        dec_asl.patchDependencies(names)
-
-        name = dec_asl.name if insn_set in ["T16","T32","A32"] else encoding.attrib['psname']
-        encs.append((name, insn_set, fields2, dec_asl, asm_encodings))
+        encs.append(readEncoding(iclass, names, exec.name, exps, decode, sailhack))
 
     return (Instruction(exec.name, encs, post, conditional, exec, exps), top)
 
