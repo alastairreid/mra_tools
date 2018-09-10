@@ -829,7 +829,16 @@ def main():
     for d in args.dir:
         for inf in glob.glob(os.path.join(d, '*.xml')):
             name = re.search('.*/(\S+).xml',inf).group(1)
-            if name == "onebigfile": continue
+            if name in ('onebigfile',
+                        'encodingindex',
+                        'shared_pseudocode',
+                        'enumerated-symbol-accounts',
+                        'constraint_text_mappings',
+                        'index',
+                        'fpsimdindex',
+                        'notice'):
+                continue
+
             xml = ET.parse(inf)
             (instr, top) = readInstruction(xml,chunks,sailhack)
             if top: tops.add(top)
