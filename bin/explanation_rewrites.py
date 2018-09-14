@@ -5,6 +5,10 @@ rewrites = [
     (r'^\s', r''), # leading whitespace
     (r'\s$', r''), # trailing whitespace
 
+    # should be specified in XML as enclist etc
+    (r'^For the (.+?) variant: ', r''),
+    (r'^When (.+?) is the ', r'is the '),
+
     # normalisation
     (r',', r' '),
     (r'\ban\b', r'a'),
@@ -12,7 +16,7 @@ rewrites = [
     (r'\bencoded as\b', r'encoded in'),
     (r'\band encoded in\b', r'encoded in'),
     (r'the [\'"](.+)[\'"] fields?', r'"\1"'),
-    (r'^Is a ', r'Is the '),
+    (r'^[Ii]s a ', r'Is the '),
     (r'^Specifies (a|the) ', r'Is the '),
     (r'Is the', r'is the'),
     (r' unsigned \(positive\) ', ' unsigned '),
@@ -36,10 +40,6 @@ rewrites = [
     (r'\btimes\b', r'*'),
     (r'\bminus\b', r'-'),
     (r'\bplus\b', r'+'),
-
-    # should be specified in XML as enclist etc
-    (r'^For the (.+?) variant: ', r''),
-    (r'^When (.+?) is the ', r'is the '),
 
     # useless natural-language junk
     (r' in the range -?\d+ to -?\d+\b', r''),
@@ -65,6 +65,9 @@ rewrites = [
     (r'. The System register names are defined in \'AArch64 System Registers\' in the System Register XML', r''),
     (r'. This syntax is only for encodings that are not accessible using <prfop>', r''),
     (r' and which must be omitted for the LSL option when <amount> is omitted', r''),
+    (r' but excluding 0xffff0000 and 0x0000ffff', r''),
+    (r' but excluding values which could be encoded by MOVZ or MOVN', r''),
+    (r' of the lsb of the (source|destination) bitfield', r''),
 
     (r'. The value returned is:.+$', r''), # TODO FIXME too much?
     (r'. The following encodings of "CRm:op2" are allocated:.+$', r''), # TODO FIXME too much?
@@ -95,6 +98,12 @@ rewrites = [
     (r'\bis the (optional )?(width specifier|extension)\b', r'is the immediate'),
     (r'\bis the index extend/shift specifier\b', 'is the immediate'),
     (r'\bis the number of bits after the binary point in the fixed-point destination\b', 'is the immediate'),
+    (r'\bis a (32|64) bit immediate the bitwise inverse of which can be\b', 'is the immediate'),
+    (r'\bis the width of the bitfield-<lsb>', 'is the immediate'),
+    (r'\b(AT|TLBI|IC|DC) instruction name as listed for the (AT|TLBI|IC|DC) system instruction (group|pages)\b', r'\1_INSTRUCTION'),
+    (r'\bimmediate which can be encoded\b', 'immediate encoded'),
+    (r'\bimmediate by which to encoded\b', 'immediate encoded'),
+    (r'\bimmediate the bitwise inverse of which can be encoded\b', 'immediate encoded'),
 
     # TODO FIXME labels?
     (r'\bprogram label whose address is to be calculated\. Its offset from the address of this instruction is\b', r'immediate'),
@@ -124,6 +133,7 @@ rewrites = [
     (r'\bnumber of the SIMD&FP ((source|destination|source and destination) )?register\b', r'immediate'),
     (r'\bname of the SIMD&FP ((source|destination|source and destination) )?register\b', r'FPREG'),
     (r' encoded in "cond" in the standard way', r' encoded in "cond"'),
+    (r'^Is 1 of the standard conditions excluding AL and NV ', r'is the condition '),
     (r'^Is 1 of the standard conditions ', r'is the condition '),
     (r'\b\d+ bit (unsigned )?immediate\b', r'immediate'),
     (r'\b\d+ bit signed immediate\b', r'signed immediate'),
@@ -148,6 +158,11 @@ rewrites = [
     (r'\s+', r' '), # normalise multiple whitespace
     (r'^\s', r''), # leading whitespace
     (r'\s$', r''), # trailing whitespace
+
+    # special cases
+    (r'TYPE CONDITION ENCODED "cond" with its bit inverted', r'TYPE INVERTED_CONDITION ENCODED "cond"'),
+    (r'TYPE WREG_ZR ENCODED "Rn" and "Rm"', r'TYPE WREG_ZR'), # dealt with using a builtin explanation
+    (r'TYPE XREG_ZR ENCODED "Rn" and "Rm"', r'TYPE XREG_ZR'), # dealt with using a builtin explanation
 ]
 
 rewrites = [(re.compile(regex), rep) for regex, rep in rewrites]

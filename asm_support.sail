@@ -369,6 +369,27 @@ mapping asm_condition : bits(4) <-> string = {
   0b1111 <-> "NV"
 }
 
+mapping asm_inverted_condition : bits(4) <-> string = {
+  0b0000 <-> "NE",
+  0b0001 <-> "EQ",
+  0b0010 <-> "HS",
+  0b0010 <-> "CS",
+  0b0011 <-> "LO",
+  0b0011 <-> "CC",
+  0b0100 <-> "PL",
+  0b0101 <-> "MI",
+  0b0110 <-> "VC",
+  0b0111 <-> "VS",
+  0b1000 <-> "LS",
+  0b1001 <-> "HI",
+  0b1010 <-> "LT",
+  0b1011 <-> "GE",
+  0b1100 <-> "LE",
+  0b1101 <-> "GT",
+  0b1110 <-> "NV",
+  0b1111 <-> "AL"
+}
+
 
 mapping label_hack_16 : bits(16) <-> string = {
   bv <-> "#" ^ hex_bits_16(bv)
@@ -399,22 +420,67 @@ mapping casp_hack_xplusone = {
    asm_xreg_zr(Rn) ^ "," ^ def_spc() ^ asm_xreg_zr(Rm) if Rm == Rn + 1 <- Rn
 }
 
-/*
-val casp_hack_wplusone_forwards : bits(5) -> string
-function casp_hack_wplusone_forwards arg = match arg {
-  Rn => asm_wreg_zr(Rn) ^ "," ^ def_spc() ^ asm_wreg_zr(Rn + 1)
+mapping movewide_imm_hack_32 : (bits(16), bits(2)) <-> string = {
+  (imm16, 0b00) <-> hex_bits_16(imm16),
+  (imm16, 0b01) <-> hex_bits_32(imm16 @ 0x0000)
 }
-val casp_hack_wplusone_forwards_matches : bits(5) -> bool
-function casp_hack_wplusone_forwards_matches arg = match arg {
-  Rn => true
+
+mapping movewide_imm_hack_64 : (bits(16), bits(2)) <-> string = {
+  (imm16, 0b00) <-> hex_bits_16(imm16),
+  (imm16, 0b01) <-> hex_bits_32(imm16 @ 0x0000),
+  (imm16, 0b10) <-> hex_bits_48(imm16 @ 0x00000000),
+  (imm16, 0b11) <-> hex_bits_64(imm16 @ 0x000000000000)
 }
-val casp_hack_wplusone_backwards : string -> bits(5)
-function casp_hack_wplusone_backwards arg = match arg {
-  asm_wreg_zr(Rn) ^ "," ^ def_spc() ^ asm_wreg_zr(Rm) if Rm == Rn + 1 => Rn
+
+mapping movewide_inverted_imm_hack_32 : (bits(16), bits(2)) <-> string = {
+  (imm16, 0b00) => hex_bits_16(not_vec(imm16)),
+  hex_bits_16(imm16) <- (not_vec(imm16), 0b00),
+  (imm16, 0b01) => hex_bits_32(not_vec(imm16) @ 0xFFFF),
+  hex_bits_32(imm16 : bits(16) @ 0xFFFF) <- (not_vec(imm16), 0b01)
 }
-val casp_hack_wplusone_backwards_matches : string -> bool
-function casp_hack_wplusone_backwards_matches arg = match arg {
-  asm_wreg_zr(Rn) ^ "," ^ def_spc() ^ asm_wreg_zr(Rm) if Rm == Rn + 1 => true,
-  _ => false
+
+mapping movewide_inverted_imm_hack_64 : (bits(16), bits(2)) <-> string = {
+  (imm16, 0b00) => hex_bits_16(not_vec(imm16)),
+  hex_bits_16(imm16) <- (not_vec(imm16), 0b00),
+  (imm16, 0b01) => hex_bits_32(not_vec(imm16) @ 0xFFFF),
+  hex_bits_32(imm16 : bits(16) @ 0xFFFF) <- (not_vec(imm16), 0b01),
+  (imm16, 0b10) => hex_bits_48(not_vec(imm16) @ 0xFFFFFFFF),
+  hex_bits_48(imm16 : bits(16) @ 0xFFFFFFFF) <- (not_vec(imm16), 0b10),
+  (imm16, 0b11) => hex_bits_64(not_vec(imm16) @ 0xFFFFFFFFFFFF),
+  hex_bits_64(imm16 : bits(16) @ 0xFFFFFFFFFFFF) <- (not_vec(imm16), 0b11)
 }
-*/
+
+mapping lsl_shift_hack_32 : (bits(6), bits(6)) <-> string = {
+  (0b0 @ shift : bits(5), imms) if imms == to_bits(6, 31 - unsigned(shift)) => hex_bits_5(shift),
+  hex_bits_5(shift) <- (0b0 @ shift, to_bits(6, 31 - unsigned(shift)))
+}
+
+mapping lsl_shift_hack_64 : (bits(6), bits(6)) <-> string = {
+  (shift, imms) if imms == to_bits(6, 63 - unsigned(shift)) => hex_bits_6(shift),
+  hex_bits_6(shift) <- (shift, to_bits(6, 63 - unsigned(shift)))
+}
+
+mapping lsb_width_hack : (bits(6), bits(6)) <-> string = {
+  (immr, imms) => "#" ^ hex_bits_6(immr) ^ sep() ^ "#" ^ string_of_int(unsigned(imms) - unsigned(immr) + 1),
+  "#" ^ hex_bits_6(lsb) ^ sep() ^ "#" ^ hex_bits_6(width) <- (lsb, to_bits(6, unsigned(lsb) + unsigned(width) - 1))
+}
+
+mapping matching_Wn : (bits(5), bits(5)) <-> string = {
+  (Rn, Rm) if Rn == Rm => asm_wreg_zr(Rn),
+  asm_wreg_zr(Rn) <- (Rn, Rn)
+}
+
+mapping matching_Xn : (bits(5), bits(5)) <-> string = {
+  (Rn, Rm) if Rn == Rm => asm_xreg_zr(Rn),
+  asm_xreg_zr(Rn) <- (Rn, Rn)
+}
+
+mapping lsb_mod_hack_32 : (bits(6), bits(6)) <-> string = {
+  (0b1 @ immr : bits(5), imms) => "#" ^ string_of_int(negate(unsigned(immr))) ^ sep() ^ "#" ^ string_of_int(unsigned(imms) + 1),
+  "#" ^ hex_bits_5(lsb) ^ sep() ^ "#" ^ hex_bits_6(width) <- (to_bits(6, negate(unsigned(lsb))), to_bits(6, unsigned(width) - 1))
+}
+
+mapping lsb_mod_hack_64 : (bits(6), bits(6)) <-> string = {
+  (immr, imms) => "#" ^ string_of_int(negate(unsigned(immr))) ^ sep() ^ "#" ^ string_of_int(unsigned(imms) + 1),
+  "#" ^ hex_bits_6(lsb) ^ sep() ^ "#" ^ hex_bits_6(width) <- (to_bits(6, negate(unsigned(lsb))), to_bits(6, unsigned(width) - 1))
+}

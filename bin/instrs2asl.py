@@ -6,10 +6,12 @@ and ASL code within it.
 '''
 
 import argparse
+import functools
 import glob
 import itertools
 import json
 import math
+import operator
 import os
 import re
 import string
@@ -220,7 +222,28 @@ class Instruction:
         return "Instruction{" + ", ".join([encs, (self.post.name if self.post else "-"), self.exec.name])+", "+conditional+"}"
 
 
+class Alias:
+    def __init__(self, name, encs, exps):
+        self.name = name
+        self.encs = encs
+        self.explanations = exps
 
+    def emit_asl_syntax(self, file):
+        pass
+
+    def emit_tag_syntax(self, file):
+        pass
+
+    def emit_sail_ast(self, previous_clauses, file):
+        pass
+
+    def emit_sail_explanations(self, previous_explanations, file):
+        for name, d in self.explanations.items():
+            explanations.emit_explanation(file, previous_explanations, name, d)
+
+    def emit_sail_asm(self, file):
+        for enc in self.encs:
+            asm.emit_sail_asm(file, enc)
 
 ########################################################################
 # Extracting information from XML files
@@ -610,6 +633,27 @@ def demangleExecuteASL(code):
     return (tops, conditional, decode, code)
 
 
+def readAlias(xml, names, sailhack):
+    psnames = [el.get('psname') for el in xml.findall('.//classes/iclass/regdiagram')]
+    assert len(psnames) > 0
+    assert functools.reduce(operator.eq, psnames), 'alias with multiple differing psnames?'
+    name = psnames[0]
+    assert name is not None
+
+    include_matches = include_regex is None or include_regex.search(name)
+    exclude_matches = exclude_regex is not None and exclude_regex.search(name)
+    if not include_matches or exclude_matches:
+        return (None, None)
+
+    exps = explanations.read_asm_explanations(name, xml)
+
+    encs = []
+    for iclass in xml.findall('.//classes/iclass'):
+        encs.append(readEncoding(iclass, names, name, exps, None, sailhack))
+
+    return (Alias(name, encs, exps), None)
+
+
 def readEncoding(iclass, names, exec_name, exps, decode, sailhack):
     encoding = iclass.find('regdiagram')
     isT16 = encoding.attrib['form'] == "16"
@@ -666,10 +710,16 @@ def readEncoding(iclass, names, exec_name, exps, decode, sailhack):
     asm_types = {nm: 'bits({})'.format(hi - lo + 1) for hi,lo,nm,_,_,_ in fields if nm != '_'}
     asm_encodings = [asm.read_asm_encoding(sanitize(exec_name), exps, asm_types, e) for e in iclass.findall('.//encoding/asmtemplate/..')]
 
-    dec_asl = readASL(iclass.find('ps_section/ps'))
-    if decode: dec_asl.code = decode +"\n"+ dec_asl.code
-    dec_asl.patchDependencies(names)
+    dec_asl_ps = iclass.find('ps_section/ps')
+    if dec_asl_ps is None:
+        dec_asl = None
+    else:
+        dec_asl = readASL(iclass.find('ps_section/ps'))
+        if decode: dec_asl.code = decode +"\n"+ dec_asl.code
+        dec_asl.patchDependencies(names)
 
+    if insn_set in ['T16', 'T32', 'A32']:
+        assert dec_asl
     name = dec_asl.name if insn_set in ["T16","T32","A32"] else encoding.attrib['psname']
 
     return (name, insn_set, fields2, dec_asl, asm_encodings)
@@ -680,7 +730,10 @@ def readInstruction(xml,names,sailhack):
     posts = xml.findall(".//pstext[@section='Postdecode']/..")
     assert(len(posts) <= 1)
     assert(len(execs) <= 1)
-    if not execs: return (None, None) # discard aliases
+
+    if not execs:
+        assert not posts
+        return readAlias(xml, names, sailhack)
 
     exec = readASL(execs[0])
     post = readASL(posts[0]) if posts else None
@@ -977,13 +1030,17 @@ def main():
         print('// End', file=outf)
         print('/'*72, file=outf)
 
+    if args.sail_asts is not None or args.sail_asm is not None:
+        sorted_instrs = sorted(instrs, key=lambda i: i.name)
+        sorted_instrs = sorted(instrs, key=lambda i: 0 if isinstance(i, Alias) else 1)
+
     if args.sail_asts is not None:
         if args.verbose > 0: print("Writing Sail ast clauses to", args.sail_asts)
         with open(args.sail_asts, "w") as outf:
             print(notice, file=outf, end='\n\n')
             print('scattered union ast', file=outf, end='\n\n')
             previous_clauses = set()
-            for i in instrs:
+            for i in sorted_instrs:
                 i.emit_sail_ast(previous_clauses, outf)
             print('\nend ast', file=outf)
 
@@ -994,7 +1051,7 @@ def main():
             print('val assembly : ast <-> string', file=outf)
             print('scattered mapping assembly', file=outf, end='\n\n')
             previous_explanations = set()
-            for i in instrs:
+            for i in sorted_instrs:
                 i.emit_sail_explanations(previous_explanations, outf)
                 i.emit_sail_asm(outf)
             print('\nend assembly', file=outf)

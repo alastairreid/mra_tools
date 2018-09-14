@@ -335,6 +335,30 @@ def process_element(instr_name, enc_name, explanations, types, el):
             return (['asm_extendedreg_hack_oneSP_32(Rn, option, Rm, imm3)'], ['Rn', 'option', 'Rm', 'imm3'], [link])
         elif exp.type == 'asm_extendedreg_hack_twoSP_32':
             return (['asm_extendedreg_hack_twoSP_32(Rd, Rn, option, Rm, imm3)'], ['Rd', 'Rn', 'option', 'Rm', 'imm3'], [link])
+        elif exp.type == 'lsl_shift_hack_32':
+            return (['lsl_shift_hack_32(immr, imms)'], ['immr', 'imms'], [link])
+        elif exp.type == 'lsl_shift_hack_64':
+            return (['lsl_shift_hack_64(immr, imms)'], ['immr', 'imms'], [link])
+#        elif exp.type == 'lsb_width_hack_32':
+#           return (['lsb_width_hack_32(immr, imms)'], ['immr', 'imms'], [link])
+        elif exp.type == 'lsb_width_hack':
+            return (['lsb_width_hack(immr, imms)'], ['immr', 'imms'], [link])
+        elif exp.type == 'lsb_mod_hack_32':
+            return (['lsb_mod_hack_32(immr, imms)'], ['immr', 'imms'], [link])
+        elif exp.type == 'lsb_mod_hack_64':
+            return (['lsb_mod_hack_64(immr, imms)'], ['immr', 'imms'], [link])
+        elif exp.type == 'matching_Wn':
+            return (['matching_Wn(Rn, Rm)'], ['Rn', 'Rm'], [link])
+        elif exp.type == 'matching_Xn':
+            return (['matching_Xn(Rn, Rm)'], ['Rn', 'Rm'], [link])
+        elif exp.type == 'movewide_imm_hack_32':
+            return (['movewide_imm_hack_32(imm16, hw)'], ['imm16', 'hw'], [link])
+        elif exp.type == 'movewide_imm_hack_64':
+            return (['movewide_imm_hack_64(imm16, hw)'], ['imm16', 'hw'], [link])
+        elif exp.type == 'movewide_inverted_imm_hack_32':
+            return (['movewide_inverted_imm_hack_32(imm16, hw)'], ['imm16', 'hw'], [link])
+        elif exp.type == 'movewide_inverted_imm_hack_64':
+            return (['movewide_inverted_imm_hack_64(imm16, hw)'], ['imm16', 'hw'], [link])
         elif 'expr' in exp.props and exp.type == 'asm_constant' and exp.props['expr'] == 'PRESENCE':
             name, args, links = generate_presence_explanation(instr_name, enc_name, explanations, types, el)
             return (['{}({})'.format(name, ', '.join(args))], args, links)
@@ -373,6 +397,34 @@ asm_rewrites = [
     (r'<Wt>, <W\(t\+1\)>', '<casp_hack_wt>'),
     (r'<Xs>, <X\(s\+1\)>', '<casp_hack_xs>'),
     (r'<Xt>, <X\(t\+1\)>', '<casp_hack_xt>'),
+
+    (r'^LSL  <Wd>, <Wn>, #<shift>$', 'LSL  <Wd>, <Wn>, #<lsl_shift_hack>'),
+    (r'^LSL  <Xd>, <Xn>, #<shift>$', 'LSL  <Xd>, <Xn>, #<lsl_shift_hack>'),
+
+    (r'^CNEG  <Wd>, <Wn>, <cond>$', 'CNEG  <Wd>, <matching_Wn>, <cond>'),
+    (r'^CNEG  <Xd>, <Xn>, <cond>$', 'CNEG  <Xd>, <matching_Xn>, <cond>'),
+    (r'^CINC  <Wd>, <Wn>, <cond>$', 'CINC  <Wd>, <matching_Wn>, <cond>'),
+    (r'^CINC  <Xd>, <Xn>, <cond>$', 'CINC  <Xd>, <matching_Xn>, <cond>'),
+    (r'^CINV  <Wd>, <Wn>, <cond>$', 'CINV  <Wd>, <matching_Wn>, <cond>'),
+    (r'^CINV  <Xd>, <Xn>, <cond>$', 'CINV  <Xd>, <matching_Xn>, <cond>'),
+    (r'^ROR  <Wd>, <Ws>, #<shift>$', 'ROR  <Wd>, <matching_Wn>, #<shift>'),
+    (r'^ROR  <Xd>, <Xs>, #<shift>$', 'ROR  <Xd>, <matching_Xn>, #<shift>'),
+
+    (r'^BFXIL  <Wd>, <Wn>, #<lsb>, #<width>$', 'BFXIL  <Wd>, <Wn>, <lsb_width_hack>'),
+    (r'^BFXIL  <Xd>, <Xn>, #<lsb>, #<width>$', 'BFXIL  <Xd>, <Xn>, <lsb_width_hack>'),
+    (r'^UBFX  <Wd>, <Wn>, #<lsb>, #<width>$', 'UBFX  <Wd>, <Wn>, <lsb_width_hack>'),
+    (r'^UBFX  <Xd>, <Xn>, #<lsb>, #<width>$', 'UBFX  <Xd>, <Xn>, <lsb_width_hack>'),
+    (r'^UBFIZ  <Wd>, <Wn>, #<lsb>, #<width>$', 'UBFIZ  <Wd>, <Wn>, <lsb_width_hack>'),
+    (r'^UBFIZ  <Xd>, <Xn>, #<lsb>, #<width>$', 'UBFIZ  <Xd>, <Xn>, <lsb_width_hack>'),
+    (r'^SBFX  <Wd>, <Wn>, #<lsb>, #<width>$', 'SBFX  <Wd>, <Wn>, <lsb_width_hack>'),
+    (r'^SBFX  <Xd>, <Xn>, #<lsb>, #<width>$', 'SBFX  <Xd>, <Xn>, <lsb_width_hack>'),
+    (r'^SBFIZ  <Wd>, <Wn>, #<lsb>, #<width>$', 'SBFIZ  <Wd>, <Wn>, <lsb_width_hack>'),
+    (r'^SBFIZ  <Xd>, <Xn>, #<lsb>, #<width>$', 'SBFIZ  <Xd>, <Xn>, <lsb_width_hack>'),
+    (r'^BFC  <Wd>, #<lsb>, #<width>$', 'BFC  <Wd>, <lsb_width_hack>'),
+    (r'^BFC  <Xd>, #<lsb>, #<width>$', 'BFC  <Xd>, <lsb_width_hack>'),
+    (r'^BFI  <Wd>, <Wn>, #<lsb>, #<width>$', 'BFI  <Wd>, <Wn>, <lsb_width_hack>'),
+    (r'^BFI  <Xd>, <Xn>, #<lsb>, #<width>$', 'BFI  <Xd>, <Xn>, <lsb_width_hack>'),
+
 ]
 asm_rewrites = [(re.compile(regex), rep) for regex, rep in asm_rewrites]
 
@@ -384,6 +436,11 @@ def read_asm_encoding(name, explanations, types, xml):
 
     for regex, rep in asm_rewrites:
         template = regex.sub(rep, template)
+
+    # hack for packed (imm+shift) immediates in MOV aliases
+    if enc_name in ('MOV_MOVZ_32_movewide', 'MOV_MOVZ_64_movewide',
+                    'MOV_MOVN_32_movewide', 'MOV_MOVN_64_movewide'):
+        template = re.sub(r'^MOV  <(Xd|Wd)>, #<imm>$', r'MOV  <\1>, #<movewide_imm_hack>', template)
 
     parse = asm_grammar.parse(template)
     assert parse.is_valid
