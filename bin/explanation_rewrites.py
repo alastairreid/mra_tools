@@ -78,7 +78,6 @@ rewrites = [
     (r'\b((leftmost|rightmost) )?bit number\b', r'immediate'),
     (r'\bname \'C[mn]\' with \'[mn]\' ', r'immediate '),
     (r'\bimmediate byte offset\b', r'immediate'),
-    (r'\bbitmask immediate\b', r'immediate'),
     (r'\bflag bit (specifier|mask) a immediate\b', r'immediate'),
     (r'\bbit position\b', r'immediate'),
     (r'\bPSTATE field name\b', r'immediate'),
@@ -142,6 +141,7 @@ rewrites = [
 
     # finally make more token-y
     (r'\bsigned immediate\b', r'SIGNED_IMMEDIATE'),
+    (r'\bbitmask immediate\b', r'BITMASK_IMMEDIATE'),
     (r'\bprefetch operation encoding as a immediate\b', r'IMMEDIATE'),
     (r'\b(unsigned|positive|index) immediate\b', r'IMMEDIATE'),
     (r'\bimmediate to be applied after extension\b', r'IMMEDIATE'), # was _EXTENDEDREG
@@ -163,6 +163,8 @@ rewrites = [
     (r'TYPE CONDITION ENCODED "cond" with its bit inverted', r'TYPE INVERTED_CONDITION ENCODED "cond"'),
     (r'TYPE WREG_ZR ENCODED "Rn" and "Rm"', r'TYPE WREG_ZR'), # dealt with using a builtin explanation
     (r'TYPE XREG_ZR ENCODED "Rn" and "Rm"', r'TYPE XREG_ZR'), # dealt with using a builtin explanation
+    (r'TYPE BITMASK_IMMEDIATE ENCODED "imms:immr"', '''TYPE BITMASK_IMMEDIATE_32 ENCODED "'0':imms:immr"'''), # 32-bit bitmask immediates with implied 0 in N
+    (r'TYPE BITMASK_IMMEDIATE ENCODED "N:imms:immr"', '''TYPE BITMASK_IMMEDIATE_64 ENCODED "N:imms:immr"'''), # 32-bit bitmask immediates with implied 0 in N
 ]
 
 rewrites = [(re.compile(regex), rep) for regex, rep in rewrites]

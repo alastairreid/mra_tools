@@ -26,6 +26,8 @@ class ExplanationGrammar(Grammar):
                    Keyword('FPREG_8'),
                    Keyword('IMMEDIATE'),
                    Keyword('SIGNED_IMMEDIATE'),
+                   Keyword('BITMASK_IMMEDIATE_32'),
+                   Keyword('BITMASK_IMMEDIATE_64'),
                    Keyword('CONDITION'),
                    Keyword('INVERTED_CONDITION'),
                    Keyword('SYSREG'),

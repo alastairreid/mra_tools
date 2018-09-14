@@ -484,3 +484,192 @@ mapping lsb_mod_hack_64 : (bits(6), bits(6)) <-> string = {
   (immr, imms) => "#" ^ string_of_int(negate(unsigned(immr))) ^ sep() ^ "#" ^ string_of_int(unsigned(imms) + 1),
   "#" ^ hex_bits_6(lsb) ^ sep() ^ "#" ^ hex_bits_6(width) <- (to_bits(6, negate(unsigned(lsb))), to_bits(6, unsigned(width) - 1))
 }
+
+/* Temporary prelude stuff for testing until we have full ASL parsing */
+val HighestSetBit : forall ('N : Int), 'N >= 2. bits('N) -> int
+
+function HighestSetBit x = {
+  foreach (i from ('N - 1) to 0 by 1 in dec)
+    if [x[i]] == 0b1 then return(i) else ();
+  return(negate(1))
+}
+
+val Zeros__0 : forall ('N : Int), 'N >= 0. atom('N) -> bits('N)
+
+val Zeros__1 : forall ('N : Int), 'N >= 0. unit -> bits('N)
+
+overload Zeros = {Zeros__0, Zeros__1}
+
+function Zeros__0 N = return(replicate_bits(0b0, 'N))
+
+function Zeros__1 () = return(Zeros('N))
+
+val Ones__0 : forall ('N : Int), 'N >= 0. atom('N) -> bits('N)
+
+val Ones__1 : forall ('N : Int), 'N >= 0. unit -> bits('N)
+
+overload Ones = {Ones__0, Ones__1}
+
+function Ones__0 N = return(replicate_bits(0b1, 'N))
+
+function Ones__1 () = return(Ones('N))
+
+val DecodeBitMasks : forall ('M : Int), 1 >= 0 & 6 >= 0 & 6 >= 0 & 'M >= 0 & 'M >= 0.
+  (bits(1), bits(6), bits(6), bool) -> (bits('M), bits('M)) effect {escape/*, rreg, undef, wreg*/}
+
+val ZeroExtend__0 : forall ('M : Int) ('N : Int), 'M >= 0 & 'N >= 0 & 'N >= 'M.
+  (bits('M), atom('N)) -> bits('N) effect pure
+
+val ZeroExtend__1 : forall ('M : Int) ('N : Int), 'M >= 0 & 'N >= 0 & 'N >= 'M.
+  bits('M) -> bits('N) effect pure
+
+overload ZeroExtend = {ZeroExtend__0, ZeroExtend__1}
+
+function ZeroExtend__0 (x, N) = {
+//  assert('N >= 'M);
+  return(Zeros('N - 'M) @ x)
+}
+
+function ZeroExtend__1 x = return(ZeroExtend(x, 'N))
+
+
+function DecodeBitMasks (immN, imms, immr, immediate) = {
+/*  tmask : bits(64) = undefined;
+  wmask : bits(64) = undefined;
+  tmask_and : bits(6) = undefined;
+  wmask_and : bits(6) = undefined;
+  tmask_or : bits(6) = undefined;
+  wmask_or : bits(6) = undefined;
+  levels : bits(6) = undefined;*/
+  let 'len = HighestSetBit(immN @ ~(imms));
+  assert('len >= 0);
+  assert('len > 1);
+  //if len < 1 then ReservedValue() else ();
+  assert('M >= shl_int(1, len), "(M >= (1 << len))");
+  assert(len <= 6);
+  levels = ZeroExtend(Ones(len), 6);
+  //if immediate & (imms & levels) == levels then ReservedValue() else ();
+  S : int = unsigned(imms & levels);
+  R : int = unsigned(immr & levels);
+  diff : int = S - R;
+  tmask_and = __GetSlice_int(6, diff, 0) | ~(levels);
+  tmask_or = __GetSlice_int(6, diff, 0) & levels;
+  tmask = Ones(64);
+  tmask = tmask & replicate_bits(replicate_bits([tmask_and[0]], 1) @ Ones(1), 32) | replicate_bits(Zeros(1) @ replicate_bits([tmask_or[0]], 1), 32);
+  tmask = tmask & replicate_bits(replicate_bits([tmask_and[1]], 2) @ Ones(2), 16) | replicate_bits(Zeros(2) @ replicate_bits([tmask_or[1]], 2), 16);
+  tmask = tmask & replicate_bits(replicate_bits([tmask_and[2]], 4) @ Ones(4), 8) | replicate_bits(Zeros(4) @ replicate_bits([tmask_or[2]], 4), 8);
+  tmask = tmask & replicate_bits(replicate_bits([tmask_and[3]], 8) @ Ones(8), 4) | replicate_bits(Zeros(8) @ replicate_bits([tmask_or[3]], 8), 4);
+  tmask = tmask & replicate_bits(replicate_bits([tmask_and[4]], 16) @ Ones(16), 2) | replicate_bits(Zeros(16) @ replicate_bits([tmask_or[4]], 16), 2);
+  tmask = tmask & replicate_bits(replicate_bits([tmask_and[5]], 32) @ Ones(32), 1) | replicate_bits(Zeros(32) @ replicate_bits([tmask_or[5]], 32), 1);
+  wmask_and = immr | ~(levels);
+  wmask_or = immr & levels;
+  wmask = Zeros(64);
+  wmask = wmask & replicate_bits(Ones(1) @ replicate_bits([wmask_and[0]], 1), 32) | replicate_bits(replicate_bits([wmask_or[0]], 1) @ Zeros(1), 32);
+  wmask = wmask & replicate_bits(Ones(2) @ replicate_bits([wmask_and[1]], 2), 16) | replicate_bits(replicate_bits([wmask_or[1]], 2) @ Zeros(2), 16);
+  wmask = wmask & replicate_bits(Ones(4) @ replicate_bits([wmask_and[2]], 4), 8) | replicate_bits(replicate_bits([wmask_or[2]], 4) @ Zeros(4), 8);
+  wmask = wmask & replicate_bits(Ones(8) @ replicate_bits([wmask_and[3]], 8), 4) | replicate_bits(replicate_bits([wmask_or[3]], 8) @ Zeros(8), 4);
+  wmask = wmask & replicate_bits(Ones(16) @ replicate_bits([wmask_and[4]], 16), 2) | replicate_bits(replicate_bits([wmask_or[4]], 16) @ Zeros(16), 2);
+  wmask = wmask & replicate_bits(Ones(32) @ replicate_bits([wmask_and[5]], 32), 1) | replicate_bits(replicate_bits([wmask_or[5]], 32) @ Zeros(32), 1);
+  if __GetSlice_int(1, diff, 6) != 0b0 then wmask = wmask & tmask
+  else wmask = wmask | tmask;
+  return((slice(wmask, 0, 'M), slice(tmask, 0, 'M)))
+}
+
+/* End temporary stuff */
+
+val _ror : forall 'regSize 'n 'k, 'k >= 0. (atom('regSize), atom('n), atom('k)) -> int effect {escape}
+function _ror (regSize, n, k) = {
+  let k = k % regSize;
+  assert(k >= 0);
+  if k == 0 then n else {
+    let d = unsigned(__GetSlice_int(k, n, 0));
+    lor_int(shl_int(d, (regSize - k)), shr_int(n, k))
+  }
+}
+
+val _next : (bits(1), int) -> int effect pure
+function _next (b, n) = {
+  if __GetSlice_int(1, n, 0) == b then 0
+  else 1 + _next(b, shr_int(n, 1))
+}
+
+val EncodeBitMasks : forall 'regSize, 'regSize >= 0. (atom('regSize), int) -> option((bits(1), bits(6), bits(6))) effect {escape}
+function EncodeBitMasks (regSize, imm) = {
+  //print_int("EncodeBitMasks called with ", imm);
+  //print_bits("(in bits) ", to_bits('regSize, imm));
+  if imm == 0 then None() // 0 is disallowed
+  else if imm == (shl_int(1, regSize) - 1) then None() // all 1s is disallowed
+  else {
+    let pref0 = _next(0b1, imm); // the length of 0s prefix of imm
+    let (e, ones, rotate) : (int, int, int) = {
+      if pref0 == 0 then {
+        let pref1 = _next(0b0, imm); // the length of 1s prefix of imm
+        assert(pref1 >= 0);
+        let run0 = _next(0b1, _ror(regSize, imm, pref1)); // the length of the first 0s run
+        assert(run0 >= 0);
+        let run1 = _next(0b0, _ror(regSize, imm, (pref1 + run0))); // the length of the first non-prefix 1s run
+        (run0 + run1, run1, run1 - pref1)
+      } else {
+        assert(pref0 >= 0);
+        let run1 = _next(0b0, _ror(regSize, imm, pref0)); // the length of the first 1s run
+        assert(run1 >= 0);
+        let run0 = _next(0b1, _ror(regSize, imm, (pref0 + run1))); // the length of the first non-prefix 0s run
+        (run0 + run1, run1, run0 + run1 - pref0)
+      }
+    };
+    let (N, imms, immr) : (bits(1), bits(6), bits(6)) = {
+      if e == 64 then (0b1, to_bits(6, ones - 1), to_bits(6, rotate))
+      else (0b0, or_vec(not_vec(to_bits(6, 2 * e - 1)), to_bits(6, ones - 1)), to_bits(6, rotate))
+    };
+    //print_bits("=== got N = ", N);
+    //print_bits("     imms = ", imms);
+    //print_bits("     immr = ", immr);
+    match DecodeBitMasks(N, imms, immr, true) : (bits('regSize), bits('regSize)) {
+      (wmask, _) if unsigned(wmask) == imm => {
+        //print("and decode concurred.");
+        Some((N, imms, immr))
+      },
+      (wmask, _) => {
+        //print_bits("but decode said ", wmask);
+        //print_bits("while we had    ", to_bits('regSize, imm));
+        //print_int("which was ", imm);
+        //print_int("and regSize = ", 'regSize);
+        None()
+      }
+    }
+  }
+}
+
+function valid_bitmask (M : nat, N : bits(1), imms : bits(6), immr : bits(6)) -> bool = {
+  let 'len = HighestSetBit(N@not_vec(imms));
+  if 'len < 1 | M < (shl_int(1, 'len))
+  then false
+  else {
+    let ones : bits('len) = Ones('len);
+    if len > 6 then
+      false
+    else {
+      let levels = ZeroExtend(ones, 6);
+      if and_vec(imms, levels) == levels then
+        false
+      else
+        true
+    }
+  }
+}
+
+mapping asm_bitmask_immediate_32 : bits(13) <-> string = {
+  N : bits(1) @ imms : bits(6) @ immr : bits(6) if valid_bitmask(32, N, imms, immr) =>
+    match DecodeBitMasks(N, imms, immr, true) : (bits(32), bits(32)) { (imm, _) => BitStr(imm) },
+
+  hex_bits_32(imm) if match EncodeBitMasks(32, unsigned(imm)) { Some(_, _, _) => true, None() => false }
+    <- match EncodeBitMasks(32, unsigned(imm)) { Some(N, imms, immr) => N @ imms @ immr }
+}
+
+mapping asm_bitmask_immediate_64 : bits(13) <-> string = {
+  N : bits(1) @ imms : bits(6) @ immr : bits(6) if valid_bitmask(64, N, imms, immr) =>
+    match DecodeBitMasks(N, imms, immr, true) : (bits(64), bits(64)) { (imm, _) => BitStr(imm) },
+
+  hex_bits_64(imm) if match EncodeBitMasks(64, unsigned(imm)) { Some(_, _, _) => true, None() => false }
+    <- match EncodeBitMasks(64, unsigned(imm)) { Some(N, imms, immr) => N @ imms @ immr }
+}
