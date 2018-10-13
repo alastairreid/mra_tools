@@ -32,6 +32,11 @@ The following commands will download ARM's specification and unpack it.
 
     make all
 
+You may need to manually add function prototypes for these functions to arch.asl
+
+    bits(4) _MemTag[AddressDescriptor desc]
+    _MemTag[AddressDescriptor desc] = bits(4) value;
+
 Generates:
 
 - arch.asl: all the ASL support code

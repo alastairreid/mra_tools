@@ -80,6 +80,30 @@ MarkExclusiveGlobal(FullAddress paddress, integer processorid, integer size)
 integer ProcessorID()
     return 0;
 
+bits(4) _MemTag[AddressDescriptor desc]
+    assert FALSE;
+    return Zeros(4);
+
+_MemTag[AddressDescriptor desc] = bits(4) value
+    assert FALSE;
+    return;
+
+boolean IsNonTagCheckedInstruction()
+    assert FALSE;
+    return FALSE;
+
+SetNotTagCheckedInstruction(boolean unchecked)
+    assert FALSE;
+    return;
+
+bits(4) _ChooseRandomNonExcludedTag(bits(16) exclude)
+    assert FALSE;
+    return Zeros(4);
+
+(bits(64), integer) ImpDefTagArrayStartAndCount(bits(64) address)
+    assert FALSE;
+    return (Zeros(64), 0);
+
 ////////////////////////////////////////////////////////////////
 // End
 ////////////////////////////////////////////////////////////////
