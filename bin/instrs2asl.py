@@ -251,11 +251,15 @@ We make parsing easier by converting bitslices to use square brackets
 using a set of heuristics to distinguish bitslices from comparisions.
 '''
 def patchSlices(x):
-    reIndex = r'[0-9a-zA-Z_+*\-()[\]., ]+'
+    reIndex = r'[0-9a-zA-Z_+*\-()[\]{}., ]+'
     rePart = reIndex+"(:"+reIndex+")?"
     reParts = rePart+"(,"+rePart+")*"
-    x = re.sub("<("+reParts+")>", r'[\1]',x)
-    x = re.sub("<("+reParts+")>", r'[\1]',x)
+
+    def replaceSlice(slice): return \
+        "{" + re.sub(r"([^-+]):", r"\1-:", slice[0][1:-1]) + "}"
+
+    x = re.sub("<"+reParts+">", replaceSlice, x)
+    x = re.sub("<"+reParts+">", replaceSlice, x)
     return x
 
 '''
