@@ -17,16 +17,16 @@ The following commands will download ARM's specification and unpack it.
     mkdir -p v8.5
     cd v8.5
 
-    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/ARMv85A-SysReg-00bet8.tar.gz
-    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/A64_v85A_ISA_xml_00bet8.tar.gz
-    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/AArch32_v85A_ISA_xml_00bet8.tar.gz
+    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/ARMv85A-SysReg-00bet9.tar.gz
+    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/A64_v85A_ISA_xml_00bet9.tar.gz
+    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/AArch32_v85A_ISA_xml_00bet9.tar.gz
 
-    tar zxf A64_v85A_ISA_xml_00bet8.tar.gz
-    tar zxf AArch32_v85A_ISA_xml_00bet8.tar.gz
-    tar zxf ARMv85A-SysReg-00bet8.tar.gz
+    tar zxf A64_v85A_ISA_xml_00bet9.tar.gz
+    tar zxf AArch32_v85A_ISA_xml_00bet9.tar.gz
+    tar zxf ARMv85A-SysReg-00bet9.tar.gz
 
-    tar zxf ISA_v85A_A64_xml_00bet8.tar.gz
-    tar zxf ISA_v85A_AArch32_xml_00bet8.tar.gz
+    tar zxf ISA_v85A_A64_xml_00bet9.tar.gz
+    tar zxf ISA_v85A_AArch32_xml_00bet9.tar.gz
 
     cd ..
 
