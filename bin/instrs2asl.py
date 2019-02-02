@@ -132,6 +132,11 @@ class Instruction:
                 # assert(not split) todo
                 wd = (hi - lo) + 1
 
+                if re.fullmatch("(\([01]\))+", nm):
+                    # workaround
+                    consts = nm
+                    nm = '_'
+
                 # convert all the 'should be' bits to 'unpredictable_unless'
                 cs = ""
                 i  = hi
