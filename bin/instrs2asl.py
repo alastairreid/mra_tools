@@ -71,6 +71,11 @@ class ASL:
         if self.name == "shared/functions/system/ProcState": self.deps -= {"SP", "SP.write.none"}
         if "Unpredictable_WBOVERLAPST" in self.defs: self.deps -= {"PSTATE"}
 
+    # workaround: v8-A code still uses the keyword 'type' as a variable name
+    # change that to 'type1'
+    def patchTypeVar(self):
+        self.code = re.sub(r'([^a-zA-Z0-9_])type([^a-zA-Z0-9_])', r'\1type1\2', self.code)
+
     def toPrototype(self):
         '''Strip function bodies out of ASL
            This is used when a function is cut but we still need to keep
@@ -145,6 +150,7 @@ class Instruction:
                 consts = cs
                 assert len(consts) == wd
                 pattern = pattern + consts
+                if nm == "type": nm = "type1" # workaround
                 if nm != "_":
                     print("        __field "+nm+" "+str(lo)+" +: "+str(wd), file=ofile)
             pattern = [ pattern[i:i+8] for i in range(0, len(pattern), 8) ]
@@ -155,15 +161,18 @@ class Instruction:
                 print("        __unpredictable_unless "+str(i)+" == '"+v+"'", file=ofile)
 
             print("        __decode", file=ofile)
+            dec.patchTypeVar()
             dec.put(ofile, 12)
             print(file=ofile)
         if self.post:
             print("    __postdecode", file=ofile)
+            self.post.patchTypeVar()
             self.post.put(ofile, 8)
         if self.conditional:
             print("    __execute __conditional", file=ofile)
         else:
             print("    __execute", file=ofile)
+        self.exec.patchTypeVar()
         self.exec.put(ofile, 8)
 
     def emit_tag_syntax(self, file):
@@ -362,6 +371,7 @@ def readITables(dir, root):
             for i in child.findall('instructiontable'):
                 iclass = i.attrib['iclass']
                 headers = [ r.text for r in i.findall('thead/tr/th') if r.attrib['class'] == 'bitfields' ]
+                headers = [ re.sub("type", "type1", nm)  for nm in headers ] # workaround
                 # print("ITable "+funcgroup +" "+ iclass +" "+str(headers))
                 rows = []
                 for r in i.findall('tbody/tr'):
@@ -377,6 +387,7 @@ def readITables(dir, root):
             assert len(tables) == 1
             # discard fields that are not used to select instruction
             # fields = [ (nm, hi, wd) for (nm, hi, wd) in fields if nm in headers ]
+            fields = [ ("type1" if nm == "type" else nm, hi, wd) for (nm, hi, wd) in fields ] # workaround
             classes[iclass_id] = (fields, tables[0])
     return classes
 
@@ -453,6 +464,8 @@ def readShared(files):
         xml = ET.parse(f)
         for ps in xml.findall('.//ps_section/ps'):
             r = readASL(ps)
+            # workaround: patch use of type as a variable name
+            r.patchTypeVar()
             # workaround: patch SCTLR[] definition
             if r.name == "aarch64/functions/sysregisters/SCTLR":
                 r.code = r.code.replace("bits(32) r;", "bits(64) r;")
