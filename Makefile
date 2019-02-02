@@ -15,7 +15,7 @@ regs.asl: ${SYSREG}
 	bin/reg2asl.py $< -o $@
 
 arch.asl arch.tag arch_instrs.asl arch_decode.asl: ${A32} ${A64}
-	bin/instrs2asl.py --altslicesyntax $^ ${FILTER}
+	bin/instrs2asl.py --altslicesyntax --demangle --verbose $^ ${FILTER}
 
 src/test_parser.byte:
 	make -C src test_parser.byte
