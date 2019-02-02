@@ -508,6 +508,23 @@ def readShared(files):
             if r.name == 'shared/functions/system/PSTATE': r.defs.add("PSTATE")
             if "PSTATE" in r.code: r.deps.add("PSTATE")
 
+            # workaround: skip standard library functions
+            if r.name in [
+                'shared/functions/common/SInt',
+                'shared/functions/common/UInt',
+                'shared/functions/common/Ones',
+                'shared/functions/common/Zeros',
+                'shared/functions/common/IsOnes',
+                'shared/functions/common/IsZero',
+                'shared/functions/common/SignExtend',
+                'shared/functions/common/ZeroExtend',
+                'shared/functions/common/Replicate',
+                'shared/functions/common/RoundDown',
+                'shared/functions/common/RoundUp',
+                'shared/functions/common/RoundTowardsZero',
+                ]:
+                continue
+
             asl[r.name] = r
 
     return (asl, names)
