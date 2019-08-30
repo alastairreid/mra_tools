@@ -676,8 +676,6 @@ def readInstruction(xml,names,sailhack):
         for b in encoding.findall('box'):
             wd = int(b.attrib.get('width','1'))
             hi = int(b.attrib['hibit'])
-            # normalise T16 encoding bit numbers
-            if isT16: hi = hi-16
             lo = hi - wd + 1
             nm  = b.attrib.get('name', '_') if b.attrib.get('usename', '0') == '1' else '_'
             # workaround for Sail
@@ -706,6 +704,10 @@ def readInstruction(xml,names,sailhack):
             if consts.startswith('!='): consts = 'x'*wd
 
             fields.append((hi,lo,nm,split,consts))
+
+        # pad opcode with zeros for T16 so that all opcodes are 32 bits
+        if isT16:
+            fields.append((15,0,'_',False,'0'*16))
 
         # workaround: avoid use of overloaded field names
         fields2 = []
