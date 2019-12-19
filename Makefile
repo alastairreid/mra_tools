@@ -1,12 +1,13 @@
 .PHONY: default
 default: all
 
-VERSION = 00bet8
-XMLDIR = v8.5
+VERSION = v85A-2019-06
+XMLDIR  = v8.5
 
-A64 = ${XMLDIR}/ISA_v85A_A64_xml_$(VERSION)
-A32 = ${XMLDIR}/ISA_v85A_AArch32_xml_$(VERSION)
-SYSREG = ${XMLDIR}/SysReg_v85A_xml-$(VERSION)
+A64    = ${XMLDIR}/ISA_A64_xml_${VERSION}
+A32    = ${XMLDIR}/ISA_AArch32_xml_${VERSION}
+SYSREG = ${XMLDIR}/SysReg_xml_${VERSION}
+
 
 FILTER =
 # FILTER = --filter=usermode.json
