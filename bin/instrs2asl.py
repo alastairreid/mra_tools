@@ -33,6 +33,16 @@ def emit(f, tag, content):
         print('TAG:'+tag, file=f)
         print(content, file=f)
 
+
+########################################################################
+# Workarounds
+########################################################################
+
+# workaround: v8-A code still uses the keyword 'type' as a variable name
+# change that to 'type1'
+def patchTypeAsVar(x):
+    return re.sub(r'([^a-zA-Z0-9_\n])type([^a-zA-Z0-9_])', r'\1type1\2', x)
+
 ########################################################################
 # Classes
 ########################################################################
@@ -74,7 +84,7 @@ class ASL:
     # workaround: v8-A code still uses the keyword 'type' as a variable name
     # change that to 'type1'
     def patchTypeVar(self):
-        self.code = re.sub(r'([^a-zA-Z0-9_\n])type([^a-zA-Z0-9_])', r'\1type1\2', self.code)
+        self.code = patchTypeAsVar(self.code)
 
     def toPrototype(self):
         '''Strip function bodies out of ASL
@@ -156,7 +166,7 @@ class Instruction:
                 consts = cs
                 assert len(consts) == wd
                 pattern = pattern + consts
-                if nm == "type": nm = "type1" # workaround
+                nm = patchTypeAsVar(nm) # workaround
                 if nm != "_":
                     print("        __field "+nm+" "+str(lo)+" +: "+str(wd), file=ofile)
             pattern = [ pattern[i:i+8] for i in range(0, len(pattern), 8) ]
@@ -379,7 +389,7 @@ def readITables(dir, root):
             for i in child.findall('instructiontable'):
                 iclass = i.attrib['iclass']
                 headers = [ r.text for r in i.findall('thead/tr/th') if r.attrib['class'] == 'bitfields' ]
-                headers = [ re.sub("type", "type1", nm)  for nm in headers ] # workaround
+                headers = [ patchTypeAsVar(nm) for nm in headers ] # workaround
                 # print("ITable "+funcgroup +" "+ iclass +" "+str(headers))
                 rows = []
                 for r in i.findall('tbody/tr'):
@@ -395,7 +405,7 @@ def readITables(dir, root):
             assert len(tables) == 1
             # discard fields that are not used to select instruction
             # fields = [ (nm, hi, wd) for (nm, hi, wd) in fields if nm in headers ]
-            fields = [ ("type1" if nm == "type" else nm, hi, wd) for (nm, hi, wd) in fields ] # workaround
+            fields = [ (patchTypeAsVar(nm), hi, wd) for (nm, hi, wd) in fields ] # workaround
             classes[iclass_id] = (fields, tables[0])
     return classes
 
@@ -422,7 +432,7 @@ def printITable(ofile, level, c):
         print("    "*level + "__field "+ fnm +" "+str(hi-wd+1) +" +: "+str(wd), file=ofile)
     print("    "*level +"case ("+ ", ".join(hdr) +") of", file=ofile)
     for (pats, nm, encname, undef, unpred, nop) in rows:
-        nm = "__encoding "+nm
+        nm = "__encoding "+deslash(nm)
         if encname: nm = nm + " // " +encname
         if undef: nm = "__UNALLOCATED"
         if unpred: nm = "__UNPREDICTABLE"
