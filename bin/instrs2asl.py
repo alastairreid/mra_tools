@@ -74,7 +74,7 @@ class ASL:
     # workaround: v8-A code still uses the keyword 'type' as a variable name
     # change that to 'type1'
     def patchTypeVar(self):
-        self.code = re.sub(r'([^a-zA-Z0-9_])type([^a-zA-Z0-9_])', r'\1type1\2', self.code)
+        self.code = re.sub(r'([^a-zA-Z0-9_\n])type([^a-zA-Z0-9_])', r'\1type1\2', self.code)
 
     def toPrototype(self):
         '''Strip function bodies out of ASL
@@ -106,8 +106,9 @@ def hasField(fields, nm):
 
 # Turn instruction and encoding names into identifiers
 # e.g., "aarch32/UHSAX/A1_A" becomes "aarch32_UHSAX_A1_A"
+# and remove dots from "LDNT1D_Z.P.BR_Contiguous"
 def deslash(nm):
-    return nm.replace("/instrs","").replace("/", "_").replace("-","_")
+    return nm.replace("/instrs","").replace("/", "_").replace("-","_").replace(".","_")
 
 class Instruction:
     '''Representation of Instructions'''
@@ -265,9 +266,11 @@ We make parsing easier by converting bitslices to use square brackets
 using a set of heuristics to distinguish bitslices from comparisions.
 '''
 def patchSlices(x):
-    reIndex = r'[0-9a-zA-Z_+*\-()[\]., ]+'
-    rePart = reIndex+"(:"+reIndex+")?"
+    reIndex = r'[0-9a-zA-Z_+*:\-()[\]., ]+'
+    rePart = reIndex
     reParts = rePart+"(,"+rePart+")*"
+    x = re.sub("<("+reParts+")>", r'[\1]',x)
+    x = re.sub("<("+reParts+")>", r'[\1]',x)
     x = re.sub("<("+reParts+")>", r'[\1]',x)
     x = re.sub("<("+reParts+")>", r'[\1]',x)
     return x

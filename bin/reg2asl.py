@@ -172,7 +172,6 @@ regs32 = [
     "RMR_EL2",
     "RMR_EL3",
     "RMUID_EL0",
-    "SCR_EL3",
     "SDER32_EL2",
     "SDER32_EL3",
     "SPSEL",
@@ -236,6 +235,7 @@ def main():
                     for f in r.findall('reg_fieldsets/fields/field'):
                         if f.find('field_name') is not None:
                             nm = f.find('field_name').text
+                            if nm == "VMID" and name in ['EDVIDSR', 'PMVIDSR']: nm = "VMID[7:0]" # workaround
                             slice = None
                             m1 = re.match('^(\w+)\[(\d+)\]$', nm)
                             m2 = re.match('^(\w+)\[(\d+):(\d+)\]$', nm)

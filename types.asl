@@ -3,7 +3,7 @@ type CNTKCTLType = typeof(CNTKCTL_EL1);
 type ESRType     = typeof(ESR_EL1);
 type FPCRType    = typeof(FPCR);
 type MAIRType    = typeof(MAIR_EL1);
-type SCRType     = typeof(SCR);
+type SCRType     = typeof(SCR_EL3);
 type SCTLRType   = typeof(SCTLR_EL1);
 
 // The following appear to be missing from the XML
@@ -16,7 +16,9 @@ AArch64.SysRegWrite(integer op0, integer op1, integer crn, integer crm, integer 
 TraceSynchronizationBarrier();
 UndefinedFault();
 ReservedEncoding();
-__ExceptionTaken();
+
+boolean IRQPending();
+boolean FIQPending();
 
 constant integer LOG2_TAG_GRANULE=4;
 constant integer TAG_GRANULE=2 ^ LOG2_TAG_GRANULE;

@@ -14,19 +14,16 @@ on what can be done with the specification once it has been unpacked.
 
 The following commands will download ARM's specification and unpack it.
 
-    mkdir -p v8.5
-    cd v8.5
+    mkdir -p v8.6
+    cd v8.6
 
-    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/ARMv85A-SysReg-00bet9.tar.gz
-    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/A64_v85A_ISA_xml_00bet9.tar.gz
-    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/AArch32_v85A_ISA_xml_00bet9.tar.gz
+    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/2019-12/SysReg_xml_v86A-2019-12.tar.gz
+    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/2019-12/A64_ISA_xml_v86A-2019-12.tar.gz
+    wget https://developer.arm.com/-/media/developer/products/architecture/armv8-a-architecture/2019-12/AArch32_ISA_xml_v86A-2019-12.tar.gz
 
-    tar zxf A64_v85A_ISA_xml_00bet9.tar.gz
-    tar zxf AArch32_v85A_ISA_xml_00bet9.tar.gz
-    tar zxf ARMv85A-SysReg-00bet9.tar.gz
-
-    tar zxf ISA_v85A_A64_xml_00bet9.tar.gz
-    tar zxf ISA_v85A_AArch32_xml_00bet9.tar.gz
+    tar zxf A64_ISA_xml_v86A-2019-12.tar.gz
+    tar zxf AArch32_ISA_xml_v86A-2019-12.tar.gz
+    tar zxf SysReg_xml_v86A-2019-12.tar
 
     cd ..
 

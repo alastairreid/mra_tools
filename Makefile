@@ -1,7 +1,7 @@
 .PHONY: default
 default: all
 
-VERSION = v85A-2019-06
+VERSION = v86A-2019-12
 XMLDIR  = v8.5
 
 A64    = ${XMLDIR}/ISA_A64_xml_${VERSION}
