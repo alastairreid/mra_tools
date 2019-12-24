@@ -758,9 +758,13 @@ def reachable(graph, roots):
             pass
         elif f not in visited:
             visited.add(f)
-            for g in graph[f]: worker(seen + [f], g)
+            deps = list(graph[f])
+            deps.sort()
+            for g in deps: worker(seen + [f], g)
             sorted.append(f)
 
+    roots = list(roots)
+    roots.sort()
     for f in roots: worker([], f)
     return (sorted, visited)
 
@@ -852,14 +856,14 @@ def main():
 
     sailhack = args.sail_asts is not None
     instrs = []
-    tops   = set()
+    tops   = []
     for d in args.dir:
         for inf in glob.glob(os.path.join(d, '*.xml')):
             name = re.search('.*/(\S+).xml',inf).group(1)
             if name == "onebigfile": continue
             xml = ET.parse(inf)
             (instr, top) = readInstruction(xml,chunks,sailhack)
-            if top: tops.add(top)
+            if top: tops.append(top)
             if instr is None: continue
 
             if encodings != []: # discard encodings from unwanted InsnSets
