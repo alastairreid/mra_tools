@@ -11,12 +11,3 @@ arch.tag
 *.swp
 *.un~
 *.swo
-
-# OCaml files
-src/_build
-src/*.byte
-src/*.native
-
-# ArchEx files
-*.json
-*.pickle

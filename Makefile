@@ -2,7 +2,7 @@
 default: all
 
 VERSION = v86A-2019-12
-XMLDIR  = v8.5
+XMLDIR  = v8.6
 
 A64    = ${XMLDIR}/ISA_A64_xml_${VERSION}
 A32    = ${XMLDIR}/ISA_AArch32_xml_${VERSION}
@@ -18,9 +18,6 @@ regs.asl: ${SYSREG}
 arch.asl arch.tag arch_instrs.asl arch_decode.asl: ${A32} ${A64}
 	bin/instrs2asl.py --altslicesyntax --demangle --verbose $^ ${FILTER}
 
-src/test_parser.byte:
-	make -C src test_parser.byte
-
 ASL += prelude.asl
 ASL += regs.asl
 ASL += arch.asl
@@ -34,18 +31,10 @@ ASL += support/fetchdecode.asl
 ASL += support/stubs.asl
 ASL += support/usermode.asl
 
-test: src/test_parser.byte $(ASL)
-	cat $(ASL) | src/test_parser.byte
-
 all :: regs.asl
 all :: arch.asl
 
 clean ::
 	$(RM) regs.asl arch.asl arch.tag arch_instrs.asl arch_decode.asl
-
-
-clean ::
-	$(MAKE) -C src clean
-
 
 # End
