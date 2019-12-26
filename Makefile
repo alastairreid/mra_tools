@@ -16,7 +16,7 @@ regs.asl: ${SYSREG}
 	bin/reg2asl.py $< -o $@
 
 arch.asl arch.tag arch_instrs.asl arch_decode.asl: ${A32} ${A64}
-	bin/instrs2asl.py --altslicesyntax --demangle --verbose $^ ${FILTER}
+	bin/instrs2asl.py --altslicesyntax --demangle --verbose -ounpatched $^ ${FILTER}
 
 ASL += prelude.asl
 ASL += regs.asl

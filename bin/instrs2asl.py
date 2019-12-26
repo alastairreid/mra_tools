@@ -262,6 +262,10 @@ def readASL(ps):
 
     code = ET.tostring(chunk, method="text").decode().rstrip()+"\n"
 
+    # workaround: patch operator precedence error
+    code = code.replace("= e - e MOD eltspersegment;",  "= e - (e MOD eltspersegment);")
+    code = code.replace("= p - p MOD pairspersegment;", "= p - (p MOD pairspersegment);")
+
     if alt_slice_syntax:
         code = "\n".join(map(patchSlices, code.split('\n')))
 
