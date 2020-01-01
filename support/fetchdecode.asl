@@ -21,16 +21,16 @@ __ResetExecuteState()
     __Sleeping    = FALSE;
 
 ExecuteA64(bits(32) instr)
-    __DecodeA64(integer UNKNOWN, instr);
+    __decode A64 instr;
 
 ExecuteA32(bits(32) instr)
-    __DecodeA32(integer UNKNOWN, instr);
+    __decode A32 instr;
 
 ExecuteT32(bits(16) hw1, bits(16) hw2)
-    __DecodeT32(integer UNKNOWN, hw1 : hw2);
+    __decode T32 (hw1 : hw2);
 
 ExecuteT16(bits(16) instr)
-    __DecodeT16(integer UNKNOWN, instr);
+    __decode T16 instr;
 
 // Implementation of BranchTo and BranchToAddr modified so that we can
 // tell that a branch was taken - this is essential for implementing
