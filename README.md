@@ -23,7 +23,7 @@ The following commands will download ARM's specification and unpack it.
 
     tar zxf A64_ISA_xml_v86A-2019-12.tar.gz
     tar zxf AArch32_ISA_xml_v86A-2019-12.tar.gz
-    tar zxf SysReg_xml_v86A-2019-12.tar
+    tar zxf SysReg_xml_v86A-2019-12.tar.gz
 
     cd ..
 
