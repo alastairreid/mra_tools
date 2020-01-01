@@ -29,7 +29,8 @@ boolean IsSecureBelowEL3()
 
 boolean HasArchVersion(ArchVersion version)
     // return version == ARMv8p0 || boolean IMPLEMENTATION_DEFINED;
-    return version IN {ARMv8p0, ARMv8p1, ARMv8p2, ARMv8p3};
+    return version IN {ARMv8p0, ARMv8p1, ARMv8p2, ARMv8p3,
+                       ARMv8p4, ARMv8p5, ARMv8p6};
 
 boolean HaveAArch32EL(bits(2) el)
     // Return TRUE if Exception level 'el' supports AArch32 in this implementation
