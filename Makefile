@@ -12,11 +12,14 @@ SYSREG = ${XMLDIR}/SysReg_xml_${VERSION}
 FILTER =
 # FILTER = --filter=usermode.json
 
-regs.asl: ${SYSREG}
+arch/regs.asl: ${SYSREG}
+	mkdir -p arch
 	bin/reg2asl.py $< -o $@
 
-arch.asl arch.tag arch_instrs.asl arch_decode.asl: ${A32} ${A64}
-	bin/instrs2asl.py --altslicesyntax --demangle --verbose -ounpatched $^ ${FILTER}
+arch/arch.asl arch/arch.tag arch/arch_instrs.asl arch/arch_decode.asl: ${A32} ${A64}
+	mkdir -p arch
+	bin/instrs2asl.py --altslicesyntax --demangle --verbose -oarch/arch $^ ${FILTER}
+	patch -Np0 < arch.patch
 
 ASL += prelude.asl
 ASL += regs.asl
@@ -31,10 +34,14 @@ ASL += support/fetchdecode.asl
 ASL += support/stubs.asl
 ASL += support/usermode.asl
 
-all :: regs.asl
-all :: arch.asl
+all :: arch/regs.asl
+all :: arch/arch.asl
 
 clean ::
-	$(RM) regs.asl arch.asl arch.tag arch_instrs.asl arch_decode.asl
+	$(RM) -r arch
+
+# Assumes that patched/* contains a manually fixed version of arch/*
+arch.patch ::
+	diff -Naur arch patched
 
 # End

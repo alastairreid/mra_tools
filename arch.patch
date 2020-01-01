@@ -1,0 +1,117 @@
+diff -Naur arch/arch.asl patched/arch.asl
+--- arch/arch.asl	2020-01-01 12:05:14.000000000 +0000
++++ patched/arch.asl	2020-01-01 12:00:49.000000000 +0000
+@@ -5343,6 +5343,8 @@
+     assert ELUsingAArch32(S1TranslationRegime());
+ 
+     TLBRecord result;
++    result.descupdate.AF = FALSE;
++    result.descupdate.AP = FALSE;
+ 
+     default_cacheable = (HasS2Translation() && ((if ELUsingAArch32(EL2) then HCR.DC else HCR_EL2.DC) == '1'));
+ 
+@@ -6348,6 +6350,8 @@
+     bit nswalk;                    // Stage 2 translation table walks are to Secure or to Non-secure PA space
+ 
+     descaddr.memattrs.memtype = MemType_Normal;
++    result.descupdate.AF = FALSE;
++    result.descupdate.AP = FALSE;
+ 
+     // Derived parameters for the page table walk:
+     //  grainsize = Log2(Size of Table)         - Size of Table is 4KB, 16KB or 64KB in AArch64
+@@ -6646,6 +6650,7 @@
+     // Number of entries in starting level table =
+     //     (Size of Input Address)/((Address per level)^(Num levels remaining)*(Size of Table))
+     baselowerbound = 3 + inputsize - ((3-level)*stride + grainsize);  // Log2(Num of entries*8)
++    bits(52) baseaddress;
+     if outputsize == 52 then
+         z = (if baselowerbound < 6 then 6 else baselowerbound);
+         baseaddress = baseregister[5:2]:baseregister[47:z]:Zeros(z);
+@@ -7021,6 +7026,8 @@
+     domain = bits(4) UNKNOWN;
+ 
+     descaddr.memattrs.memtype = MemType_Normal;
++    result.descupdate.AF = FALSE;
++    result.descupdate.AP = FALSE;
+ 
+     // Fixed parameters for the page table walk:
+     //  grainsize = Log2(Size of Table)         - Size of Table is 4KB in AArch32
+@@ -7368,6 +7375,9 @@
+     AddressDescriptor l2descaddr;
+     bits(40)      outputaddress;
+ 
++    result.descupdate.AF = FALSE;
++    result.descupdate.AP = FALSE;
++
+     // Variables for Abort functions
+     ipaddress = bits(40) UNKNOWN;
+     secondstage = FALSE;
+@@ -8107,6 +8117,8 @@
+     assert !ELUsingAArch32(S1TranslationRegime());
+ 
+     TLBRecord result;
++    result.descupdate.AF = FALSE;
++    result.descupdate.AP = FALSE;
+ 
+     Top = AddrTop(vaddress, (acctype == AccType_IFETCH), PSTATE.EL);
+     if !IsZero(vaddress[Top:PAMax()]) then
+@@ -8417,6 +8429,11 @@
+ // register in the event of an external abort.
+ _MemTag[AddressDescriptor desc, AccessDescriptor accdesc] = bits(4) value;
+ 
++// Workaround for type error in published spec.
++// (Note that this will not work if MTE is enabled.)
++bits(4) _MemTag[AddressDescriptor desc];
++_MemTag[AddressDescriptor desc] = bits(4) value;
++
+ // AArch64.CheckTag()
+ // ==================
+ // Performs a Tag Check operation for a memory access and returns
+@@ -9884,7 +9901,7 @@
+         else
+             implicit_esb = FALSE;
+             syndrome64 = AArch64.PhysicalSErrorSyndrome(implicit_esb);
+-            DISR_EL1 = AArch64.ReportDeferredSError(syndrome64)[31:0];
++            DISR_EL1 = AArch64.ReportDeferredSError(syndrome64);
+         ClearPendingPhysicalSError();               // Set ISR_EL1.A to 0
+ 
+     return;
+@@ -9958,7 +9975,7 @@
+         if ELUsingAArch32(EL1) then
+             VDISR = AArch32.ReportDeferredSError(VDFSR[15:14], VDFSR[12]);
+         else
+-            VDISR_EL2 = AArch64.ReportDeferredSError(VSESR_EL2[24:0])[31:0];
++            VDISR_EL2 = AArch64.ReportDeferredSError(VSESR_EL2[24:0]);
+         HCR_EL2.VSE = '0';                       // Clear pending virtual SError
+ 
+     return;
+diff -Naur arch/arch_instrs.asl patched/arch_instrs.asl
+--- arch/arch_instrs.asl	2020-01-01 12:05:14.000000000 +0000
++++ patched/arch_instrs.asl	2019-12-26 17:58:21.000000000 +0000
+@@ -230,19 +230,15 @@
+             integer d = UInt(D:Vd);
+             integer m = UInt(M:Vm);
+ 
+-    __execute
++    __execute __conditional
++        CheckAdvSIMDEnabled();
+         bits(128) operand;
+         bits(64) result;
+-        
+-        if ConditionPassed() then
+-            EncodingSpecificOperations();
+-            CheckAdvSIMDEnabled();
+-        
+-            operand = Q[m>>1];
+-            for e = 0 to 3
+-                bits(32) op = Elem[operand, e, 32];
+-                Elem[result, e, 16] = FPConvertBF(op, StandardFPSCRValue());
+-            D[d] = result;
++        operand = Q[m>>1];
++        for e = 0 to 3
++            bits(32) op = Elem[operand, e, 32];
++            Elem[result, e, 16] = FPConvertBF(op, StandardFPSCRValue());
++        D[d] = result;
+ 
+ __instruction aarch32_MRS_br_AS
+     __encoding aarch32_MRS_br_A1_AS
